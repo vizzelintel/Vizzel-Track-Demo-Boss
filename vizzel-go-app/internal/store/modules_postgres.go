@@ -109,6 +109,9 @@ func (s *postgresStore) ListRooms(ctx context.Context, orgID int64) ([]Row, erro
 }
 
 func (s *postgresStore) ListAssetCategories(ctx context.Context, orgID int64) ([]Row, error) {
+	if s.tabAssetsEnabled(ctx) {
+		return s.listTabCategories(ctx, orgID)
+	}
 	return s.listRowsPG(ctx, `SELECT id, name, NULL, NULL, NULL, created_at FROM asset_categories WHERE organization_id = $1`, orgID)
 }
 

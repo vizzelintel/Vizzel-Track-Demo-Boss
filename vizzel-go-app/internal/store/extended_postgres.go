@@ -39,6 +39,9 @@ func (s *postgresStore) ListPositions(ctx context.Context, orgID int64) ([]Row, 
 }
 
 func (s *postgresStore) ListAssetTypes(ctx context.Context, orgID int64, categoryID int64) ([]Row, error) {
+	if s.tabAssetsEnabled(ctx) {
+		return s.listTabTypes(ctx, orgID, categoryID)
+	}
 	if categoryID > 0 {
 		return s.listRowsPG(ctx, `SELECT id, name, NULL, NULL, NULL, created_at FROM asset_types WHERE organization_id = $1 AND category_id = $2`, orgID, categoryID)
 	}
@@ -46,6 +49,9 @@ func (s *postgresStore) ListAssetTypes(ctx context.Context, orgID int64, categor
 }
 
 func (s *postgresStore) ListAssetClasses(ctx context.Context, orgID int64, typeID int64) ([]Row, error) {
+	if s.tabAssetsEnabled(ctx) {
+		return s.listTabClasses(ctx, orgID, typeID)
+	}
 	if typeID > 0 {
 		return s.listRowsPG(ctx, `SELECT id, name, NULL, NULL, NULL, created_at FROM asset_classes WHERE organization_id = $1 AND type_id = $2`, orgID, typeID)
 	}
@@ -70,14 +76,27 @@ func (s *postgresStore) GetAuditJob(ctx context.Context, orgID, id int64) (*Row,
 func (s *postgresStore) DashboardExtended(ctx context.Context, orgID int64) (*DashboardExtended, error) {
 	var totalValue int64
 	var count int
-	_ = s.pool.QueryRow(ctx, `SELECT COALESCE(SUM(asset_value),0)::bigint, COUNT(*)::int FROM assets WHERE organization_id = $1 AND status != 'deleted'`, orgID).Scan(&totalValue, &count)
+	assetTable := `assets`
+	assetWhere := `organization_id = $1 AND status != 'deleted'`
+	if s.tabAssetsEnabled(ctx) {
+		assetTable = `tab_asset`
+		assetWhere = `organization_id = $1 AND deleted_at IS NULL`
+	}
+	_ = s.pool.QueryRow(ctx,
+		fmt.Sprintf(`SELECT COALESCE(SUM(asset_value),0)::bigint, COUNT(*)::int FROM %s WHERE %s`, assetTable, assetWhere),
+		orgID,
+	).Scan(&totalValue, &count)
 	dep := totalValue / 5
 	d := &DashboardExtended{
 		TotalAssetValue: totalValue, AccumulatedDepreciation: dep, NetBookValue: totalValue - dep,
 		TotalAssets: count, NewAssetsThisYear: count / 10, CurrentYearDepreciation: dep / 12,
 		Trend: TrendSeries{Labels: []string{"ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย."}, Values: []int{count / 6, count / 5, count / 4, count / 3, count / 2, count}},
 	}
-	rows, _ := s.pool.Query(ctx, `SELECT asset_status_name, COUNT(*)::int FROM assets WHERE organization_id = $1 AND status != 'deleted' GROUP BY asset_status_name`, orgID)
+	statusQ := `SELECT asset_status_name, COUNT(*)::int FROM assets WHERE organization_id = $1 AND status != 'deleted' GROUP BY asset_status_name`
+	if s.tabAssetsEnabled(ctx) {
+		statusQ = `SELECT st.status, COUNT(*)::int FROM tab_asset a JOIN tab_asset_status st ON st.id = a.asset_status_id WHERE a.organization_id = $1 AND a.deleted_at IS NULL GROUP BY st.status`
+	}
+	rows, _ := s.pool.Query(ctx, statusQ, orgID)
 	if rows != nil {
 		defer rows.Close()
 		for rows.Next() {
@@ -87,7 +106,13 @@ func (s *postgresStore) DashboardExtended(ctx context.Context, orgID int64) (*Da
 			d.StatusBreakdown = append(d.StatusBreakdown, StatusSlice{Name: name, Count: c})
 		}
 	}
-	rows2, _ := s.pool.Query(ctx, `SELECT building_name, COUNT(*)::int FROM assets WHERE organization_id = $1 AND status != 'deleted' AND building_name != '' GROUP BY building_name`, orgID)
+	locQ := `SELECT building_name, COUNT(*)::int FROM assets WHERE organization_id = $1 AND status != 'deleted' AND building_name != '' GROUP BY building_name`
+	if s.tabAssetsEnabled(ctx) {
+		locQ = `SELECT COALESCE(addr.building_name,'ไม่ระบุ'), COUNT(*)::int FROM tab_asset a
+			LEFT JOIN LATERAL (SELECT building_name FROM tab_asset_address WHERE asset_id = a.id AND deleted_at IS NULL LIMIT 1) addr ON TRUE
+			WHERE a.organization_id = $1 AND a.deleted_at IS NULL GROUP BY addr.building_name`
+	}
+	rows2, _ := s.pool.Query(ctx, locQ, orgID)
 	if rows2 != nil {
 		defer rows2.Close()
 		for rows2.Next() {
@@ -272,6 +297,9 @@ func (s *postgresStore) EntityDelete(ctx context.Context, kind string, orgID, id
 }
 
 func (s *postgresStore) GetAsset(ctx context.Context, orgID, id int64) (*Asset, error) {
+	if s.tabAssetsEnabled(ctx) {
+		return s.getAssetTab(ctx, orgID, id)
+	}
 	row := s.pool.QueryRow(ctx, `SELECT id, organization_id, asset_number, asset_name, COALESCE(rfid_num,''), COALESCE(category_id,0), COALESCE(class_id,0),
 		COALESCE(category_name,''), COALESCE(class_name,''), COALESCE(type_name,''), COALESCE(building_name,''), COALESCE(room_name,''),
 		COALESCE(owner_name,''), COALESCE(asset_status_name,'ใช้งาน'), asset_value, status, created_at
@@ -286,6 +314,12 @@ func (s *postgresStore) GetAsset(ctx context.Context, orgID, id int64) (*Asset, 
 }
 
 func (s *postgresStore) CreateAsset(ctx context.Context, orgID int64, in AssetInput) (*Asset, error) {
+	if s.tabAssetsEnabled(ctx) {
+		if in.AssetStatusName == "" {
+			in.AssetStatusName = "ใช้งาน"
+		}
+		return s.createAssetTab(ctx, orgID, in)
+	}
 	if in.AssetStatusName == "" {
 		in.AssetStatusName = "ใช้งาน"
 	}
@@ -300,12 +334,18 @@ func (s *postgresStore) CreateAsset(ctx context.Context, orgID int64, in AssetIn
 }
 
 func (s *postgresStore) UpdateAsset(ctx context.Context, orgID, id int64, in AssetInput) error {
+	if s.tabAssetsEnabled(ctx) {
+		return s.updateAssetTab(ctx, orgID, id, in)
+	}
 	_, err := s.pool.Exec(ctx, `UPDATE assets SET asset_number=$3, asset_name=$4, rfid_num=$5, category_id=$6, class_id=$7, category_name=$8, class_name=$9, type_name=$10, building_name=$11, room_name=$12, owner_name=$13, asset_status_name=$14, asset_value=$15 WHERE id=$1 AND organization_id=$2`,
 		id, orgID, in.AssetNumber, in.AssetName, in.RFIDNum, in.CategoryID, in.ClassID, in.CategoryName, in.ClassName, in.TypeName, in.BuildingName, in.RoomName, in.OwnerName, in.AssetStatusName, in.AssetValue)
 	return err
 }
 
 func (s *postgresStore) DeleteAsset(ctx context.Context, orgID, id int64) error {
+	if s.tabAssetsEnabled(ctx) {
+		return s.deleteAssetTab(ctx, orgID, id)
+	}
 	_, err := s.pool.Exec(ctx, `UPDATE assets SET status='deleted' WHERE id=$1 AND organization_id=$2`, id, orgID)
 	return err
 }

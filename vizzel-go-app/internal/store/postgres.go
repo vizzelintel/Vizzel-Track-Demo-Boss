@@ -41,7 +41,10 @@ func (s *postgresStore) Ping(ctx context.Context) error {
 }
 
 func (s *postgresStore) Migrate(ctx context.Context) error {
-	files := []string{"001_schema.sql", "002_modules.sql", "003_assets_enrich.sql", "004_extended.sql", "005_production.sql"}
+	files := []string{
+		"001_schema.sql", "002_modules.sql", "003_assets_enrich.sql", "004_extended.sql", "005_production.sql",
+		"006_tab_core.sql", "007_tab_asset.sql", "008_tab_structure.sql", "009_tab_ops.sql", "010_sync_demo_to_tab.sql",
+	}
 	prefixes := []string{"supabase/migrations/", "vizzel-go-app/supabase/migrations/"}
 	for _, name := range files {
 		var data []byte
@@ -61,7 +64,7 @@ func (s *postgresStore) Migrate(ctx context.Context) error {
 			}
 		}
 	}
-	return nil
+	return s.SyncDemoToTab(ctx)
 }
 
 func splitSQL(sql string) []string {
@@ -99,7 +102,10 @@ func (s *postgresStore) SeedDemo(ctx context.Context, email, password string, as
 		if err := s.ensureAssetCount(ctx, 1, assetCount); err != nil {
 			return err
 		}
-		return s.EnrichAssets(ctx, 1)
+		if err := s.EnrichAssets(ctx, 1); err != nil {
+			return err
+		}
+		return s.SyncDemoToTab(ctx)
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -136,7 +142,10 @@ func (s *postgresStore) SeedDemo(ctx context.Context, email, password string, as
 	if err := s.seedExtraUsers(ctx, orgID); err != nil {
 		return err
 	}
-	return s.EnrichAssets(ctx, orgID)
+	if err := s.EnrichAssets(ctx, orgID); err != nil {
+		return err
+	}
+	return s.SyncDemoToTab(ctx)
 }
 
 func (s *postgresStore) ensureAssetCount(ctx context.Context, orgID int64, want int) error {

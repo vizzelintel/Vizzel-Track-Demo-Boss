@@ -34,10 +34,13 @@ func (s *postgresStore) EnrichAssets(ctx context.Context, orgID int64) error {
 			return err
 		}
 	}
-	return nil
+	return s.SyncDemoToTab(ctx)
 }
 
 func (s *postgresStore) ListAssetsPaged(ctx context.Context, orgID int64, page, pageSize int, f AssetFilter) (*AssetListResult, error) {
+	if s.tabAssetsEnabled(ctx) {
+		return s.listAssetsTab(ctx, orgID, page, pageSize, f)
+	}
 	if page < 1 {
 		page = 1
 	}
@@ -105,6 +108,9 @@ func (s *postgresStore) ListAssetsPaged(ctx context.Context, orgID int64, page, 
 }
 
 func (s *postgresStore) AssetReferenceData(ctx context.Context, orgID int64) (*AssetReferenceData, error) {
+	if s.tabAssetsEnabled(ctx) {
+		return s.assetReferenceTab(ctx, orgID)
+	}
 	cats, err := s.ListAssetCategories(ctx, orgID)
 	if err != nil {
 		return nil, err

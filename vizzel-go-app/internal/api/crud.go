@@ -30,8 +30,8 @@ func (h *Handler) CreateAsset(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
-	var in store.AssetInput
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+	in, err := decodeAssetInput(r)
+	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
@@ -50,8 +50,8 @@ func (h *Handler) UpdateAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	var in store.AssetInput
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+	in, err := decodeAssetInput(r)
+	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
