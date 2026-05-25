@@ -1,37 +1,49 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { useEffect, useState } from "react";
+import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+
+type Summary = {
+  asset_count: number;
+  user_count: number;
+  audit_ongoing: number;
+  repair_pending: number;
+  withdrawal_pending: number;
+};
 
 export function DashboardPage() {
   const { user } = useAuth();
+  const [s, setS] = useState<Summary | null>(null);
+
+  useEffect(() => {
+    apiRequest<Summary>("/api/v1/dashboard/summary").then(setS).catch(() => setS(null));
+  }, []);
+
+  const cards = [
+    { label: "สินทรัพย์", value: s?.asset_count ?? "—" },
+    { label: "สมาชิก", value: s?.user_count ?? "—" },
+    { label: "ตรวจนับ (กำลังทำ)", value: s?.audit_ongoing ?? "—" },
+    { label: "ซ่อม (รอดำเนินการ)", value: s?.repair_pending ?? "—" },
+    { label: "เบิก/ยืม (รอ)", value: s?.withdrawal_pending ?? "—" },
+  ];
+
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">องค์กร</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-semibold">{user?.organization?.name || "Demo Organization"}</p>
-          <p className="text-muted-foreground text-sm">Org ID: {user?.organization_id}</p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">สินทรัพย์ (Demo)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-semibold">~200</p>
-          <p className="text-muted-foreground text-sm">ดูรายละเอียดที่เมนูรายการสินทรัพย์</p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">สถานะระบบ</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-primary text-sm font-medium">Go API + React (Phase 1)</p>
-          <p className="text-muted-foreground mt-1 text-sm">โมดูลอื่นกำลังพัฒนาต่อ</p>
-        </CardContent>
-      </Card>
+    <div className="space-y-4">
+      <p className="text-muted-foreground text-sm">
+        องค์กร: {user?.organization?.name} — ภาพรวมระบบ (Demo ครบทุกโมดูล)
+      </p>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {cards.map((c) => (
+          <Card key={c.label}>
+            <CardHeader>
+              <CardTitle className="text-base">{c.label}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-semibold">{c.value}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }

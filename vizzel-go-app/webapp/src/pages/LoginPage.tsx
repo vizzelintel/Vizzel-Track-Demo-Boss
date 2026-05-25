@@ -85,6 +85,9 @@ export function LoginPage() {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
             </Button>
+            <p className="text-muted-foreground text-center text-xs">
+              Super Admin: superadmin@demo.local / demo1234
+            </p>
           </form>
         </CardContent>
       </Card>

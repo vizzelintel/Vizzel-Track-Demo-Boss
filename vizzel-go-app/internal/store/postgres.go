@@ -41,24 +41,24 @@ func (s *postgresStore) Ping(ctx context.Context) error {
 }
 
 func (s *postgresStore) Migrate(ctx context.Context) error {
-	paths := []string{
-		"supabase/migrations/001_schema.sql",
-		"vizzel-go-app/supabase/migrations/001_schema.sql",
-	}
-	var data []byte
-	var err error
-	for _, p := range paths {
-		data, err = os.ReadFile(p)
-		if err == nil {
-			break
+	files := []string{"001_schema.sql", "002_modules.sql"}
+	prefixes := []string{"supabase/migrations/", "vizzel-go-app/supabase/migrations/"}
+	for _, name := range files {
+		var data []byte
+		var err error
+		for _, pre := range prefixes {
+			data, err = os.ReadFile(pre + name)
+			if err == nil {
+				break
+			}
 		}
-	}
-	if err != nil {
-		return fmt.Errorf("read migration: %w", err)
-	}
-	for _, stmt := range splitSQL(string(data)) {
-		if _, err := s.pool.Exec(ctx, stmt); err != nil {
-			return fmt.Errorf("migrate: %w", err)
+		if err != nil {
+			return fmt.Errorf("read migration %s: %w", name, err)
+		}
+		for _, stmt := range splitSQL(string(data)) {
+			if _, err := s.pool.Exec(ctx, stmt); err != nil {
+				return fmt.Errorf("migrate %s: %w", name, err)
+			}
 		}
 	}
 	return nil
@@ -94,6 +94,8 @@ func (s *postgresStore) SeedDemo(ctx context.Context, email, password string, as
 		return err
 	}
 	if orgCount > 0 {
+		_ = s.SeedModules(ctx, 1)
+		_ = s.seedExtraUsers(ctx, 1)
 		return s.ensureAssetCount(ctx, 1, assetCount)
 	}
 
@@ -125,7 +127,10 @@ func (s *postgresStore) SeedDemo(ctx context.Context, email, password string, as
 	if err := insertAssetsPostgres(ctx, tx, orgID, assetCount); err != nil {
 		return err
 	}
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	return s.seedExtraUsers(ctx, orgID)
 }
 
 func (s *postgresStore) ensureAssetCount(ctx context.Context, orgID int64, want int) error {

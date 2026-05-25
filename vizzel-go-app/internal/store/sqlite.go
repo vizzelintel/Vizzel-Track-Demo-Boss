@@ -67,7 +67,7 @@ func (s *sqliteStore) Migrate(ctx context.Context) error {
 			return fmt.Errorf("sqlite migrate: %w", err)
 		}
 	}
-	return nil
+	return s.migrateModules(ctx)
 }
 
 func (s *sqliteStore) SeedDemo(ctx context.Context, email, password string, assetCount int) error {
@@ -76,6 +76,7 @@ func (s *sqliteStore) SeedDemo(ctx context.Context, email, password string, asse
 		return err
 	}
 	if orgCount > 0 {
+		_ = s.SeedModules(ctx, 1)
 		return s.ensureAssetCount(ctx, 1, assetCount)
 	}
 
@@ -110,7 +111,25 @@ func (s *sqliteStore) SeedDemo(ctx context.Context, email, password string, asse
 	if err := insertAssets(ctx, tx, orgID, assetCount, "?"); err != nil {
 		return err
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	return s.seedExtraUsers(ctx, orgID)
+}
+
+func (s *sqliteStore) seedExtraUsers(ctx context.Context, orgID int64) error {
+	hash, err := bcrypt.GenerateFromPassword([]byte("demo1234"), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.ExecContext(ctx,
+		`INSERT OR IGNORE INTO users (organization_id, email, password_hash, display_name) VALUES (?, ?, ?, ?)`,
+		orgID, "superadmin@demo.local", string(hash), "Super Admin",
+	)
+	if err != nil {
+		return err
+	}
+	return s.SeedModules(ctx, orgID)
 }
 
 func (s *sqliteStore) ensureAssetCount(ctx context.Context, orgID int64, want int) error {

@@ -66,7 +66,11 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := auth.IssueToken(h.cfg.JWTSecret, u.ID, u.OrganizationID, store.DemoRoleAdminOrg, u.Email, 24*time.Hour)
+	roleID := store.DemoRoleAdminOrg
+	if email == "superadmin@demo.local" {
+		roleID = 1
+	}
+	token, err := auth.IssueToken(h.cfg.JWTSecret, u.ID, u.OrganizationID, roleID, u.Email, 24*time.Hour)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "token issue failed")
 		return
@@ -79,7 +83,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		"user": store.User{
 			ID:             u.ID,
 			OrganizationID: u.OrganizationID,
-			RoleID:         store.DemoRoleAdminOrg,
+			RoleID:         roleID,
 			Email:          u.Email,
 			DisplayName:    u.DisplayName,
 		},

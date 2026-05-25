@@ -8,6 +8,7 @@ import {
   FileJson,
   Command,
   ChevronDown,
+  Shield,
 } from "lucide-react";
 import { useState, type ComponentType } from "react";
 import { cn } from "@/lib/utils";
@@ -36,6 +37,19 @@ export function AppSidebar() {
       ],
     },
   ];
+
+  if (roleID === 1) {
+    nav.unshift({
+      title: "Super Admin",
+      icon: Shield,
+      items: [
+        { title: "ภาพรวม", url: "/super-admin/dashboard" },
+        { title: "จัดการองค์กร", url: "/super-admin/organizations" },
+        { title: "จัดการเมนู", url: "/super-admin/menus" },
+        { title: "สิทธิ์เข้าถึง Org", url: "/super-admin/org-access" },
+      ],
+    });
+  }
 
   if (roleID === 1 || roleID === 2) {
     nav.push({
