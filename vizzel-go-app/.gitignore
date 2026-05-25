@@ -1,6 +1,7 @@
 vizzel_demo.db
 vizzel_demo.db-*
 *.exe
+*.exe~
 .env
 .env.*
 webapp/node_modules

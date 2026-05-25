@@ -1,6 +1,15 @@
 # Vizzel Track — Go Demo (แบบ A: Go API + React)
 
-แอปเดียว: **Go (chi)** ให้ REST API + เสิร์ฟ **React (Vite)** ฝังใน binary — เป้าหมาย UI/UX ใกล้เคียง Vizzel Track production (Next.js) ทีละ phase
+แอปเดียว: **Go (chi)** + **React (Vite)** ฝังใน binary — เมนูและหน้าหลักครบตาม production (demo data)
+
+## Live
+
+https://vizzel-track-demo-boss.fly.dev/
+
+| บัญชี | รหัสผ่าน | บทบาท |
+|--------|----------|--------|
+| admin@demo.local | demo1234 | Admin Org (เมนูครบ) |
+| superadmin@demo.local | demo1234 | Super Admin |
 
 ## รัน local
 
@@ -10,54 +19,27 @@ cd vizzel-go-app
 .\server.exe
 ```
 
-หรือ dev แยก UI:
+Dev UI: `cd webapp && npm run dev` (proxy `/api` → :8080)
 
-```powershell
-# Terminal 1 — API
-go run ./cmd/server
+## โมดูลที่ใช้งานได้ (ทุกเมนูใน Sidebar)
 
-# Terminal 2 — UI hot reload (proxy /api → :8080)
-cd webapp
-npm install
-npm run dev
-```
+- แดชบอร์ด (สรุป KPI)
+- จัดการองค์กร / โครงสร้าง / สมาชิก
+- สินทรัพย์ (รายการ + โครงสร้าง)
+- ตรวจนับ / ซ่อม / เบิก-ยืม / จำหน่าย
+- Super Admin (เมนู org, menus)
+- โปรไฟล์ / ตั้งค่า
 
-เปิด http://localhost:8080 (หรือ http://localhost:5173 ตอน dev)
+## ขอบเขต vs Production
 
-| Login | `admin@demo.local` / `demo1234` |
+| Production (Next+Nest) | Demo นี้ |
+|------------------------|----------|
+| CRUD เต็ม, import Excel, charts | รายการ + seed demo |
+| NextAuth refresh, Socket.io | JWT + REST |
+| ~46 หน้า shadcn เต็ม | Layout เหมือน + หน้าทุก route |
 
-## Phase 1 (ปัจจุบัน)
+ต่อยอดให้เหมือน production เป๊ะ = port API/UI ทีละโมดูลจาก `vizzeltrack` (read-only)
 
-- หน้า Login สไตล์ production
-- Layout + Sidebar เมนูหลัก (แดชบอร์ด, org, assets, audit, …)
-- **ใช้งานได้:** Dashboard, รายการสินทรัพย์ (`/assets/list`)
-- หน้าอื่น: placeholder (Phase 2+)
+## API (`/api/v1/...`)
 
-## API
-
-| Method | Path |
-|--------|------|
-| GET | `/api/v1/health` |
-| POST | `/api/v1/auth/login` |
-| GET | `/api/v1/auth/me` |
-| GET | `/api/v1/assets` |
-
-## Supabase / Fly
-
-ดู `.env.example` สำหรับ `SUPABASE_DB_URL` + `JWT_SECRET`
-
-```powershell
-fly deploy -a vizzel-track-demo-boss
-```
-
-Live: https://vizzel-track-demo-boss.fly.dev/
-
-## โครงสร้าง
-
-```text
-cmd/server/           Go entry
-internal/api/         handlers
-internal/spa/dist/    React build output (embed)
-webapp/               React + Vite source
-supabase/migrations/
-```
+`health`, `auth/login`, `auth/me`, `assets`, `dashboard/summary`, `users`, `organization/*`, `assets/categories`, `assets/classes`, `audit/ongoing`, `audit/history`, `repairs`, `withdrawals`, `sales`, `menus`, `super-admin/organizations`
