@@ -3,6 +3,7 @@ package server
 import (
 	"io/fs"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -27,12 +28,19 @@ func New(cfg config.Config, st store.Store) http.Handler {
 	})
 
 	web, _ := fs.Sub(webassets.FS, "web")
-	fileServer := http.FileServer(http.FS(web))
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		r.URL.Path = "/index.html"
-		fileServer.ServeHTTP(w, r)
-	})
-	r.Handle("/*", http.StripPrefix("/", fileServer))
+	r.Handle("/*", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			http.NotFound(w, r)
+			return
+		}
+		name := strings.TrimPrefix(r.URL.Path, "/")
+		if name == "" || name == "index.html" {
+			name = "index.html"
+		} else if _, err := web.Open(name); err != nil {
+			name = "index.html"
+		}
+		http.ServeFileFS(w, r, web, name)
+	}))
 
 	return r
 }
