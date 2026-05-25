@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vizzel Track Demo</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header>
+    <h1>Vizzel Track Demo</h1>
+    <p class="tagline">Go single-binary · multi-tenant assets</p>
+  </header>
+
+  <main>
+    <section id="login-panel" class="card">
+      <h2>เข้าสู่ระบบ</h2>
+      <form id="login-form">
+        <label>อีเมล</label>
+        <input type="email" id="email" value="admin@demo.local" required />
+        <label>รหัสผ่าน</label>
+        <input type="password" id="password" value="demo1234" required />
+        <button type="submit">Login</button>
+      </form>
+      <p id="login-error" class="error hidden"></p>
+    </section>
+
+    <section id="assets-panel" class="card hidden">
+      <div class="toolbar">
+        <h2>ทรัพย์สิน</h2>
+        <button id="logout-btn" type="button">Logout</button>
+      </div>
+      <p id="user-info"></p>
+      <table>
+        <thead>
+          <tr>
+            <th>เลขที่</th>
+            <th>ชื่อ</th>
+            <th>มูลค่า</th>
+            <th>สถานะ</th>
+          </tr>
+        </thead>
+        <tbody id="assets-body"></tbody>
+      </table>
+      <button id="load-more" type="button" class="hidden">โหลดเพิ่ม</button>
+    </section>
+  </main>
+
+  <footer>
+    <span id="health-status">checking…</span>
+  </footer>
+  <script src="/app.js"></script>
+</body>
+</html>

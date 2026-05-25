@@ -1,0 +1,5 @@
+vizzel_demo.db
+vizzel_demo.db-*
+*.exe
+.env
+.env.*
