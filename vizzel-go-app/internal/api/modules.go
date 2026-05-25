@@ -146,9 +146,14 @@ func (h *Handler) OrgMenus(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "menus failed")
 		return
 	}
+	names, _ := h.store.ListMenuNames(r.Context())
 	rows := make([]store.Row, 0, len(ids))
 	for _, id := range ids {
-		rows = append(rows, store.Row{ID: int64(id), Title: "เมนู #" + strconv.Itoa(id)})
+		title := names[id]
+		if title == "" {
+			title = "เมนู #" + strconv.Itoa(id)
+		}
+		rows = append(rows, store.Row{ID: int64(id), Title: title})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": rows})
 }

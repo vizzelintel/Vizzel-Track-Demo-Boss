@@ -64,6 +64,7 @@ func MountProductionRoutes(r chi.Router, h *Handler) {
 	r.Get("/organization/initial-data/{orgID}", h.OrgInitialData)
 	r.Get("/facility/building/get", h.ListBuildings)
 	r.Get("/superAdmin/dashboard/overview", h.SuperAdminStats)
+	MountCompatExtended(r, h)
 }
 
 func orgIDFromQueryOrClaims(r *http.Request) (int64, bool) {
@@ -120,8 +121,8 @@ func (h *Handler) buildCompatReference(ctx context.Context, orgID int64) map[str
 		"buildings":   bld,
 		"rooms":       rms,
 		"users":       map[string]any{"data": usr, "total": len(usr)},
-		"getBy":       []any{map[string]any{"id": 1, "name": "จัดซื้อ"}, map[string]any{"id": 2, "name": "บริจาค"}},
-		"sourceFund":  []any{map[string]any{"id": 1, "name": "งบประมาณแผ่นดิน"}, map[string]any{"id": 2, "name": "รายได้"}},
+		"getBy":       lovRowsToMaps(mustLOV(h, ctx, true)),
+		"sourceFund":  lovRowsToMaps(mustLOV(h, ctx, false)),
 		"departments": rowsToNamed(depts, "deptName"),
 		"institutes":  rowsToNamed(inst, "institute_name"),
 		"sections":    rowsToNamed(secs, "section_name"),

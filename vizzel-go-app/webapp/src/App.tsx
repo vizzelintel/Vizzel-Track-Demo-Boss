@@ -13,7 +13,10 @@ import { ProfilePage } from "./pages/ProfilePage";
 import { EntityCrudPage } from "./components/data/EntityCrudPage";
 import { AuditOngoingPage } from "./pages/AuditOngoingPage";
 import { AuditJobPage } from "./pages/AuditJobPage";
-import { WithdrawalApprovalPage } from "./pages/WithdrawalApprovalPage";
+import { WithdrawalApprovalPage } from "./pages/withdrawal/withdrawal-approval/page";
+import { UsersPage } from "./pages/users/page";
+import { WithdrawalPage } from "./pages/withdrawal/page";
+import { WithdrawalDashboardPage } from "./pages/withdrawal/dashboard/page";
 import { SuperAdminDashboardPage } from "./pages/SuperAdminDashboardPage";
 import { SuperAdminMenusPage } from "./pages/SuperAdminMenusPage";
 import { SuperAdminOrgAccessPage } from "./pages/SuperAdminOrgAccessPage";
@@ -102,7 +105,7 @@ export default function App() {
             />
           }
         />
-        <Route path="/users" element={<EntityCrudPage title="จัดการสมาชิก" listEndpoint="/api/v1/users" columns={[{ key: "title", label: "ชื่อ" }, { key: "subtitle", label: "อีเมล" }]} />} />
+        <Route path="/users" element={<UsersPage />} />
         <Route path="/organization" element={<OrganizationPage />} />
         <Route path="/organization-structure" element={<OrganizationStructurePage />} />
         <Route path="/assets" element={<Navigate to="/assets/list" replace />} />
@@ -183,36 +186,8 @@ export default function App() {
             />
           }
         />
-        <Route
-          path="/withdrawal"
-          element={
-            <EntityCrudPage
-              title="ทำรายการเบิก-ยืม"
-              listEndpoint="/api/v1/withdrawals"
-              entityKind="withdrawals"
-              columns={[
-                { key: "title", label: "ผู้ขอ" },
-                { key: "subtitle", label: "รายการ" },
-                { key: "status", label: "สถานะ" },
-              ]}
-              createLabel="สร้างคำขอ"
-            />
-          }
-        />
-        <Route
-          path="/withdrawal/dashboard"
-          element={
-            <EntityCrudPage
-              title="ภาพรวมเบิก-ยืม"
-              listEndpoint="/api/v1/withdrawals"
-              columns={[
-                { key: "title", label: "ผู้ขอ" },
-                { key: "subtitle", label: "รายการ" },
-                { key: "status", label: "สถานะ" },
-              ]}
-            />
-          }
-        />
+        <Route path="/withdrawal" element={<WithdrawalPage />} />
+        <Route path="/withdrawal/dashboard" element={<WithdrawalDashboardPage />} />
         <Route path="/withdrawal-approval" element={<WithdrawalApprovalPage />} />
         <Route path="/documents" element={<DocumentsPage />} />
         <Route path="/documents/:id" element={<DocumentDetailPage />} />

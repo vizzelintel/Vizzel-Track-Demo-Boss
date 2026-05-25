@@ -26,18 +26,6 @@ func (s *postgresStore) seedExtendedPG(ctx context.Context, orgID int64) error {
 	return nil
 }
 
-func (s *postgresStore) ListInstitutes(ctx context.Context, orgID int64) ([]Row, error) {
-	return s.listRowsPG(ctx, `SELECT id, name, NULL, NULL, NULL, created_at FROM institutes WHERE organization_id = $1`, orgID)
-}
-
-func (s *postgresStore) ListSections(ctx context.Context, orgID int64) ([]Row, error) {
-	return s.listRowsPG(ctx, `SELECT id, name, NULL, NULL, NULL, created_at FROM sections WHERE organization_id = $1`, orgID)
-}
-
-func (s *postgresStore) ListPositions(ctx context.Context, orgID int64) ([]Row, error) {
-	return s.listRowsPG(ctx, `SELECT id, name, NULL, NULL, NULL, created_at FROM positions WHERE organization_id = $1`, orgID)
-}
-
 func (s *postgresStore) ListAssetTypes(ctx context.Context, orgID int64, categoryID int64) ([]Row, error) {
 	if s.tabAssetsEnabled(ctx) {
 		return s.listTabTypes(ctx, orgID, categoryID)
@@ -56,21 +44,6 @@ func (s *postgresStore) ListAssetClasses(ctx context.Context, orgID int64, typeI
 		return s.listRowsPG(ctx, `SELECT id, name, NULL, NULL, NULL, created_at FROM asset_classes WHERE organization_id = $1 AND type_id = $2`, orgID, typeID)
 	}
 	return s.listRowsPG(ctx, `SELECT id, name, NULL, NULL, NULL, created_at FROM asset_classes WHERE organization_id = $1`, orgID)
-}
-
-func (s *postgresStore) ListWithdrawals(ctx context.Context, orgID int64, status string) ([]Row, error) {
-	if status != "" {
-		return s.listRowsPG(ctx, `SELECT id, requester, item_name, status, NULL, created_at FROM withdrawals WHERE organization_id = $1 AND status = $2`, orgID, status)
-	}
-	return s.listRowsPG(ctx, `SELECT id, requester, item_name, status, NULL, created_at FROM withdrawals WHERE organization_id = $1`, orgID)
-}
-
-func (s *postgresStore) GetAuditJob(ctx context.Context, orgID, id int64) (*Row, error) {
-	rows, err := s.listRowsPG(ctx, `SELECT id, title, COALESCE(description,''), status, progress::bigint, created_at FROM audit_jobs WHERE organization_id = $1 AND id = $2`, orgID, id)
-	if err != nil || len(rows) == 0 {
-		return nil, err
-	}
-	return &rows[0], nil
 }
 
 func (s *postgresStore) DashboardExtended(ctx context.Context, orgID int64) (*DashboardExtended, error) {
@@ -347,11 +320,6 @@ func (s *postgresStore) DeleteAsset(ctx context.Context, orgID, id int64) error 
 		return s.deleteAssetTab(ctx, orgID, id)
 	}
 	_, err := s.pool.Exec(ctx, `UPDATE assets SET status='deleted' WHERE id=$1 AND organization_id=$2`, id, orgID)
-	return err
-}
-
-func (s *postgresStore) UpdateWithdrawalStatus(ctx context.Context, orgID, id int64, status string) error {
-	_, err := s.pool.Exec(ctx, `UPDATE withdrawals SET status = $1 WHERE id = $2 AND organization_id = $3`, status, id, orgID)
 	return err
 }
 

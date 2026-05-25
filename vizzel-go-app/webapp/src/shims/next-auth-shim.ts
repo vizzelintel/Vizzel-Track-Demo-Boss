@@ -1,5 +1,5 @@
 import { useAuth } from "@/context/AuthContext";
-import { getToken } from "@/lib/api";
+import { getToken, clearToken } from "@/lib/api";
 
 export function useSession() {
   const { user, loading } = useAuth();
@@ -44,9 +44,10 @@ export async function getSession() {
   }
 }
 
-export function signOut() {
-  localStorage.removeItem("vizzel_access_token");
-  window.location.href = "/login";
+export function signOut(opts?: { redirect?: boolean; callbackUrl?: string }) {
+  clearToken();
+  if (opts?.redirect === false) return;
+  window.location.href = opts?.callbackUrl ?? "/login";
 }
 
 export async function signIn(

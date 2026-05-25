@@ -58,6 +58,21 @@ type Store interface {
 	IssueRefreshToken(ctx context.Context, userID int64) (string, error)
 	ValidateRefreshToken(ctx context.Context, token string) (*RefreshClaims, error)
 	ListWarranties(ctx context.Context, orgID int64) ([]Row, map[string]int, error)
+	ListLOVGetBy(ctx context.Context) ([]Row, error)
+	ListLOVSourceFund(ctx context.Context) ([]Row, error)
+	ListAssetDocs(ctx context.Context, assetID int64) ([]AssetDoc, error)
+	CreateAssetDoc(ctx context.Context, assetID int64, name, url string) (int64, error)
+	DeleteAssetDoc(ctx context.Context, docID int64) error
+	CreateCheckJob(ctx context.Context, orgID int64, name string) (int64, error)
+	UpdateCheckJob(ctx context.Context, orgID, jobID int64, status string, progress int) error
+	DeleteCheckJob(ctx context.Context, orgID, jobID int64) error
+	CreateWithdrawal(ctx context.Context, orgID int64, requester, item string, internal bool) (int64, error)
+	CreateRepair(ctx context.Context, orgID int64, assetNumber, note string) (int64, error)
+	ListMenuNames(ctx context.Context) (map[int]string, error)
+	OrgLimit(ctx context.Context, orgID int64, kind string) (int, error)
+	ListProvinces(ctx context.Context) ([]Row, error)
+	ListDistricts(ctx context.Context, provinceID int64) ([]Row, error)
+	ListSubdistricts(ctx context.Context, districtID int64) ([]Row, error)
 }
 
 func Open(ctx context.Context, dbURL, sqlitePath string) (Store, error) {

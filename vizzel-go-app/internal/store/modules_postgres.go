@@ -96,34 +96,11 @@ func (s *postgresStore) ListUsers(ctx context.Context, orgID int64) ([]Row, erro
 	return s.listRowsPG(ctx, `SELECT id, COALESCE(NULLIF(display_name,''), email), email, NULL, NULL, created_at FROM users WHERE organization_id = $1`, orgID)
 }
 
-func (s *postgresStore) ListDepartments(ctx context.Context, orgID int64) ([]Row, error) {
-	return s.listRowsPG(ctx, `SELECT id, name, NULL, NULL, NULL, created_at FROM departments WHERE organization_id = $1`, orgID)
-}
-
-func (s *postgresStore) ListBuildings(ctx context.Context, orgID int64) ([]Row, error) {
-	return s.listRowsPG(ctx, `SELECT id, name, NULL, NULL, NULL, created_at FROM buildings WHERE organization_id = $1`, orgID)
-}
-
-func (s *postgresStore) ListRooms(ctx context.Context, orgID int64) ([]Row, error) {
-	return s.listRowsPG(ctx, `SELECT r.id, r.name, r.room_number, NULL, NULL, r.created_at FROM rooms r JOIN buildings b ON b.id = r.building_id WHERE b.organization_id = $1`, orgID)
-}
-
 func (s *postgresStore) ListAssetCategories(ctx context.Context, orgID int64) ([]Row, error) {
 	if s.tabAssetsEnabled(ctx) {
 		return s.listTabCategories(ctx, orgID)
 	}
 	return s.listRowsPG(ctx, `SELECT id, name, NULL, NULL, NULL, created_at FROM asset_categories WHERE organization_id = $1`, orgID)
-}
-
-func (s *postgresStore) ListAuditJobs(ctx context.Context, orgID int64, status string) ([]Row, error) {
-	if status != "" {
-		return s.listRowsPG(ctx, `SELECT id, title, NULL, status, progress::bigint, created_at FROM audit_jobs WHERE organization_id = $1 AND status = $2`, orgID, status)
-	}
-	return s.listRowsPG(ctx, `SELECT id, title, NULL, status, progress::bigint, created_at FROM audit_jobs WHERE organization_id = $1`, orgID)
-}
-
-func (s *postgresStore) ListRepairs(ctx context.Context, orgID int64) ([]Row, error) {
-	return s.listRowsPG(ctx, `SELECT id, asset_number, note, status, NULL, created_at FROM repairs WHERE organization_id = $1`, orgID)
 }
 
 func (s *postgresStore) ListSales(ctx context.Context, orgID int64) ([]Row, error) {

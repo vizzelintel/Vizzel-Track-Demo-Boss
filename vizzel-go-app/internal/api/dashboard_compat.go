@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
@@ -197,7 +198,17 @@ func (h *Handler) CompatPersonalStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CompatPersonalCategory(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"data": []any{}})
+	claims, ok := claimsFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	cats, _ := h.store.ListAssetCategories(r.Context(), claims.OrganizationID)
+	items := make([]map[string]any, 0, len(cats))
+	for _, c := range cats {
+		items = append(items, map[string]any{"category": c.Title, "value": 1, "label": c.Title})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": items})
 }
 
 func (h *Handler) CompatPersonalAssets(w http.ResponseWriter, r *http.Request) {
@@ -262,14 +273,44 @@ func (h *Handler) CompatRepairInitialData(w http.ResponseWriter, r *http.Request
 }
 
 func (h *Handler) CompatAssetDocGet(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"data": []any{}})
+	assetID, _ := strconv.ParseInt(chi.URLParam(r, "assetID"), 10, 64)
+	docs, err := h.store.ListAssetDocs(r.Context(), assetID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "list failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": docs})
 }
 
 func (h *Handler) CompatAssetDocCreate(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]string{"status": "ok"}})
+	var body struct {
+		AssetID int64  `json:"assetID"`
+		Name    string `json:"name"`
+		URL     string `json:"url"`
+		FileURL string `json:"fileUrl"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	url := body.URL
+	if url == "" {
+		url = body.FileURL
+	}
+	if url == "" {
+		url = "/uploads/demo-doc.pdf"
+	}
+	id, err := h.store.CreateAssetDoc(r.Context(), body.AssetID, body.Name, url)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "create failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]int64{"id": id}})
 }
 
 func (h *Handler) CompatAssetDocDelete(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		ID int64 `json:"id"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	_ = h.store.DeleteAssetDoc(r.Context(), body.ID)
 	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]string{"status": "ok"}})
 }
 
