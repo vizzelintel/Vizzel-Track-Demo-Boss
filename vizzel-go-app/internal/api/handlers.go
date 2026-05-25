@@ -76,11 +76,13 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "token issue failed")
 		return
 	}
+	refresh, _ := h.store.IssueRefreshToken(r.Context(), u.ID)
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"access_token": token,
-		"token_type":   "Bearer",
-		"expires_in":   86400,
+		"access_token":  token,
+		"refresh_token": refresh,
+		"token_type":    "Bearer",
+		"expires_in":    86400,
 		"user": store.User{
 			ID:             u.ID,
 			OrganizationID: u.OrganizationID,

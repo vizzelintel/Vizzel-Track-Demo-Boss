@@ -73,7 +73,10 @@ func (s *sqliteStore) Migrate(ctx context.Context) error {
 	if err := s.migrateAssetsEnrich(ctx); err != nil {
 		return err
 	}
-	return s.migrateExtended(ctx)
+	if err := s.migrateExtended(ctx); err != nil {
+		return err
+	}
+	return s.migrateAuthTables(ctx)
 }
 
 func (s *sqliteStore) SeedDemo(ctx context.Context, email, password string, assetCount int) error {

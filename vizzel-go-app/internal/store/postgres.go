@@ -41,7 +41,7 @@ func (s *postgresStore) Ping(ctx context.Context) error {
 }
 
 func (s *postgresStore) Migrate(ctx context.Context) error {
-	files := []string{"001_schema.sql", "002_modules.sql", "003_assets_enrich.sql", "004_extended.sql"}
+	files := []string{"001_schema.sql", "002_modules.sql", "003_assets_enrich.sql", "004_extended.sql", "005_production.sql"}
 	prefixes := []string{"supabase/migrations/", "vizzel-go-app/supabase/migrations/"}
 	for _, name := range files {
 		var data []byte

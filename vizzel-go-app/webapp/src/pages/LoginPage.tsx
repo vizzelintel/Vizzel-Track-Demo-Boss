@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { AlertCircle, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -82,9 +82,20 @@ export function LoginPage() {
                 </button>
               </div>
             </div>
+            <div className="flex justify-end">
+              <Link to="/forgot-password" className="text-primary text-xs hover:underline">
+                ลืมรหัสผ่าน?
+              </Link>
+            </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
             </Button>
+            <p className="text-center text-sm">
+              ยังไม่มีบัญชี?{" "}
+              <Link to="/register" className="text-primary hover:underline">
+                สมัครสมาชิก
+              </Link>
+            </p>
             <p className="text-muted-foreground text-center text-xs">
               Super Admin: superadmin@demo.local / demo1234
             </p>

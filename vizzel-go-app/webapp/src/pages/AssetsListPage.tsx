@@ -34,6 +34,7 @@ export function AssetsListPage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Asset | null>(null);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 400);
@@ -89,6 +90,51 @@ export function AssetsListPage() {
           <p className="text-muted-foreground mt-1 text-sm">{rangeLabel}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            className="h-8 px-3 text-xs"
+            onClick={() => apiDownload("/api/v1/assets/template", "asset-template.csv")}
+          >
+            เทมเพลต
+          </Button>
+          <label className="inline-flex h-8 cursor-pointer items-center rounded-lg border border-border px-3 text-xs hover:bg-muted">
+            นำเข้า CSV
+            <input
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const fd = new FormData();
+                fd.append("file", file);
+                const token = localStorage.getItem("vizzel_access_token");
+                await fetch("/api/v1/assets/import", {
+                  method: "POST",
+                  headers: token ? { Authorization: `Bearer ${token}` } : {},
+                  body: fd,
+                });
+                load();
+              }}
+            />
+          </label>
+          {selected.size > 0 && (
+            <Button
+              variant="outline"
+              className="h-8 px-3 text-xs text-destructive"
+              onClick={async () => {
+                if (!confirm(`ลบ ${selected.size} รายการ?`)) return;
+                await apiRequest("/api/v1/assets/bulk-delete", {
+                  method: "PATCH",
+                  body: JSON.stringify({ assetIDs: [...selected] }),
+                });
+                setSelected(new Set());
+                load();
+              }}
+            >
+              ลบที่เลือก ({selected.size})
+            </Button>
+          )}
           <Button
             variant="outline"
             className="h-8 px-3 text-xs"
@@ -188,6 +234,15 @@ export function AssetsListPage() {
           <table className="w-full min-w-[960px] text-sm">
             <thead className="bg-muted/50">
               <tr className="text-left">
+                <th className="p-3 w-10">
+                  <input
+                    type="checkbox"
+                    checked={items.length > 0 && selected.size === items.length}
+                    onChange={(e) =>
+                      setSelected(e.target.checked ? new Set(items.map((i) => i.id)) : new Set())
+                    }
+                  />
+                </th>
                 <th className="p-3 font-medium">เลขที่</th>
                 <th className="p-3 font-medium">RFID</th>
                 <th className="p-3 font-medium">ชื่อสินทรัพย์</th>
@@ -203,13 +258,25 @@ export function AssetsListPage() {
             <tbody>
               {items.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={10} className="text-muted-foreground p-8 text-center">
+                  <td colSpan={11} className="text-muted-foreground p-8 text-center">
                     ไม่พบข้อมูล
                   </td>
                 </tr>
               )}
               {items.map((row) => (
                 <tr key={row.id} className="border-t border-border hover:bg-muted/30">
+                  <td className="p-3">
+                    <input
+                      type="checkbox"
+                      checked={selected.has(row.id)}
+                      onChange={(e) => {
+                        const next = new Set(selected);
+                        if (e.target.checked) next.add(row.id);
+                        else next.delete(row.id);
+                        setSelected(next);
+                      }}
+                    />
+                  </td>
                   <td className="p-3 font-mono text-xs">{row.asset_number}</td>
                   <td className="p-3 font-mono text-xs text-muted-foreground">
                     {row.rfid_num || "—"}

@@ -51,6 +51,7 @@ export function AppSidebar() {
       { title: "รายงานส่วนตัว", url: "/dashboard/personal" },
       { title: "รายงานการรับประกัน", url: "/dashboard/reports" },
       { title: "รายงานการตรวจนับ", url: "/dashboard/audit" },
+      { title: "รายงานการซ่อมบำรุง", url: "/dashboard/repair" },
     ],
   });
 

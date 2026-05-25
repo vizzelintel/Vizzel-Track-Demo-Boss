@@ -18,7 +18,13 @@ import { SuperAdminDashboardPage } from "./pages/SuperAdminDashboardPage";
 import { SuperAdminMenusPage } from "./pages/SuperAdminMenusPage";
 import { SuperAdminOrgAccessPage } from "./pages/SuperAdminOrgAccessPage";
 import { DocumentsPage } from "./pages/DocumentsPage";
+import { DocumentDetailPage } from "./pages/DocumentDetailPage";
 import { InboxPage } from "./pages/InboxPage";
+import { RegisterPage } from "./pages/RegisterPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
+import { WarrantyReportsPage } from "./pages/WarrantyReportsPage";
+import { RepairDashboardPage } from "./pages/RepairDashboardPage";
+import { AssetTaxonomyPage } from "./pages/AssetTaxonomyPage";
 
 function Protected({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -38,6 +44,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
+      <Route path="/register" element={user ? <Navigate to="/dashboard" replace /> : <RegisterPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route
         element={
           <Protected>
@@ -48,21 +56,8 @@ export default function App() {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/dashboard/personal" element={<PersonalDashboardPage />} />
-        <Route
-          path="/dashboard/reports"
-          element={
-            <EntityCrudPage
-              title="รายงานการรับประกัน"
-              listEndpoint="/api/v1/sales"
-              columns={[
-                { key: "title", label: "เลขครุภัณฑ์" },
-                { key: "subtitle", label: "ผู้ซื้อ" },
-                { key: "status", label: "สถานะ" },
-                { key: "value", label: "มูลค่า", render: (r) => (r.value ?? 0).toLocaleString() },
-              ]}
-            />
-          }
-        />
+        <Route path="/dashboard/reports" element={<WarrantyReportsPage />} />
+        <Route path="/dashboard/repair" element={<RepairDashboardPage />} />
         <Route
           path="/dashboard/audit"
           element={
@@ -83,9 +78,32 @@ export default function App() {
         <Route path="/assets" element={<Navigate to="/assets/list" replace />} />
         <Route path="/assets/list" element={<AssetsListPage />} />
         <Route path="/assets/structure" element={<AssetsStructurePage />} />
-        <Route path="/assets/category" element={<Navigate to="/assets/structure" replace />} />
-        <Route path="/assets/type" element={<Navigate to="/assets/structure" replace />} />
-        <Route path="/assets/class" element={<Navigate to="/assets/structure" replace />} />
+        <Route
+          path="/assets/category"
+          element={<AssetTaxonomyPage title="หมวดสินทรัพย์" listEndpoint="/api/v1/assets/categories" entityKind="categories" />}
+        />
+        <Route
+          path="/assets/type"
+          element={
+            <AssetTaxonomyPage
+              title="ประเภทสินทรัพย์"
+              listEndpoint="/api/v1/assets/types"
+              entityKind="types"
+              parentField={{ label: "หมวด", listEndpoint: "/api/v1/assets/categories" }}
+            />
+          }
+        />
+        <Route
+          path="/assets/class"
+          element={
+            <AssetTaxonomyPage
+              title="กลุ่ม/ชนิดสินทรัพย์"
+              listEndpoint="/api/v1/assets/classes"
+              entityKind="classes"
+              parentField={{ label: "ประเภท", listEndpoint: "/api/v1/assets/types" }}
+            />
+          }
+        />
         <Route
           path="/sales"
           element={
@@ -167,6 +185,7 @@ export default function App() {
         />
         <Route path="/withdrawal-approval" element={<WithdrawalApprovalPage />} />
         <Route path="/documents" element={<DocumentsPage />} />
+        <Route path="/documents/:id" element={<DocumentDetailPage />} />
         <Route path="/inbox" element={<InboxPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/settings" element={<ProfilePage />} />

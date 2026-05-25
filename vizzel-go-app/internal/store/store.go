@@ -53,6 +53,11 @@ type Store interface {
 	EntityDelete(ctx context.Context, kind string, orgID, id int64) error
 	SeedModules(ctx context.Context, orgID int64) error
 	UpdateWithdrawalStatus(ctx context.Context, orgID, id int64, status string) error
+	CreateUser(ctx context.Context, orgID int64, email, hash, display string, roleID int64) (*User, error)
+	UpdateUserPassword(ctx context.Context, userID int64, hash string) error
+	IssueRefreshToken(ctx context.Context, userID int64) (string, error)
+	ValidateRefreshToken(ctx context.Context, token string) (*RefreshClaims, error)
+	ListWarranties(ctx context.Context, orgID int64) ([]Row, map[string]int, error)
 }
 
 func Open(ctx context.Context, dbURL, sqlitePath string) (Store, error) {

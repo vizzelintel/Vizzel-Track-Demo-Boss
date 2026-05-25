@@ -20,11 +20,22 @@ func New(cfg config.Config, st store.Store) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID, middleware.RealIP, middleware.Logger, middleware.Recoverer)
 
+	r.Get("/health", h.Health)
+	r.Post("/auth/login", h.Login) // production path
+	r.Post("/auth/register", h.Register)
+	r.Post("/auth/refresh", h.Refresh)
+	r.Post("/auth/forgot-password", h.ForgotPassword)
+	r.Post("/auth/reset-password", h.ResetPassword)
+	r.Get("/auth/verify/{token}", h.VerifyEmail)
+
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", h.Health)
 		r.Post("/auth/login", h.Login)
+		r.Post("/auth/register", h.Register)
+		r.Post("/auth/refresh", h.Refresh)
 		r.Group(func(r chi.Router) {
 			r.Use(api.JWTAuth(cfg))
+			r.Post("/auth/change-password", h.ChangePassword)
 			r.Get("/auth/me", h.Me)
 
 			r.Get("/assets", h.ListAssets)
@@ -34,6 +45,10 @@ func New(cfg config.Config, st store.Store) http.Handler {
 			r.Post("/assets", h.CreateAsset)
 			r.Patch("/assets/{id}", h.UpdateAsset)
 			r.Delete("/assets/{id}", h.DeleteAsset)
+			r.Post("/assets/import", h.AssetImport)
+			r.Get("/assets/template", h.AssetTemplate)
+			r.Patch("/assets/bulk-delete", h.CompatAssetBulkDelete)
+			r.Get("/warranty/initial-data/{orgID}", h.WarrantyInitialData)
 
 			r.Get("/dashboard/summary", h.DashboardSummary)
 			r.Get("/dashboard/extended", h.DashboardExtended)
@@ -77,6 +92,11 @@ func New(cfg config.Config, st store.Store) http.Handler {
 			r.Post("/super-admin/org-access", h.CreateOrgAccess)
 			r.Delete("/super-admin/org-access/{id}", h.DeleteOrgAccess)
 		})
+	})
+
+	r.Group(func(r chi.Router) {
+		r.Use(api.JWTAuth(cfg))
+		api.MountProductionRoutes(r, h)
 	})
 
 	web, _ := fs.Sub(spa.FS, "dist")
