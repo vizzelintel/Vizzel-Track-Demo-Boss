@@ -2,7 +2,9 @@ package server
 
 import (
 	"io/fs"
+	"mime"
 	"net/http"
+	"path/filepath"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -39,7 +41,15 @@ func New(cfg config.Config, st store.Store) http.Handler {
 		} else if _, err := web.Open(name); err != nil {
 			name = "index.html"
 		}
-		http.ServeFileFS(w, r, web, name)
+		data, err := fs.ReadFile(web, name)
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		if ct := mime.TypeByExtension(filepath.Ext(name)); ct != "" {
+			w.Header().Set("Content-Type", ct)
+		}
+		w.Write(data)
 	}))
 
 	return r
