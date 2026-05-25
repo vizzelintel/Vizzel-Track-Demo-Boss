@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
-import { AppLayout } from "./components/layout/AppLayout";
+import { ProtectedLayout } from "./components/layout/ProtectedLayout";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { PersonalDashboardPage } from "./pages/PersonalDashboardPage";
@@ -25,6 +25,7 @@ import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { WarrantyReportsPage } from "./pages/WarrantyReportsPage";
 import { RepairDashboardPage } from "./pages/RepairDashboardPage";
 import { AssetTaxonomyPage } from "./pages/AssetTaxonomyPage";
+import { AuthLayout } from "./components/layout/AuthLayout";
 
 function Protected({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -43,13 +44,42 @@ export default function App() {
   const { user } = useAuth();
   return (
     <Routes>
-      <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
-      <Route path="/register" element={user ? <Navigate to="/dashboard" replace /> : <RegisterPage />} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route
+        path="/login"
+        element={
+          user ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <AuthLayout>
+              <LoginPage />
+            </AuthLayout>
+          )
+        }
+      />
+      <Route
+        path="/register"
+        element={
+          user ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <AuthLayout>
+              <RegisterPage />
+            </AuthLayout>
+          )
+        }
+      />
+      <Route
+        path="/forgot-password"
+        element={
+          <AuthLayout>
+            <ForgotPasswordPage />
+          </AuthLayout>
+        }
+      />
       <Route
         element={
           <Protected>
-            <AppLayout />
+            <ProtectedLayout />
           </Protected>
         }
       >

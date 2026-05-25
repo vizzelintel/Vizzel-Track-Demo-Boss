@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiRequest } from "@/lib/api";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export type Row = {
   id: number;

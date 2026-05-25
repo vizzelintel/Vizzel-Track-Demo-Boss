@@ -1,93 +1,105 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { apiRequest, type DashboardExtended } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { SimpleBarChart, StatusBars } from "@/components/charts/BarChart";
+import { SectionCards } from "@/components/section-cards";
+import { ChartAreaInteractive } from "@/components/chart-area-interactive";
+import { AssetValueHistoryChart } from "@/components/asset-value-history-chart";
+import { AssetStatusChart } from "@/components/asset-status-chart";
+import { DepreciationSection } from "@/components/depreciation-section";
+import { NewAssetsSection } from "@/components/new-assets-section";
+import { AssetLocationSection } from "@/components/asset-location-section";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  getAssetLocationDashboard,
+  getAssetStatusChart,
+  getAssetTrend,
+  getAssetValueHistory,
+  getDashboardSummary,
+  getDepreciationHistoryDashboard,
+  getNewAssetsDashboard,
+} from "@/lib/data-service";
+import { TEST_IDS } from "@/components/test-ids";
 
-type Summary = {
-  asset_count: number;
-  user_count: number;
-  audit_ongoing: number;
-  repair_pending: number;
-  withdrawal_pending: number;
-};
+function CardSkeleton({ className = "h-[360px]" }: { className?: string }) {
+  return <Skeleton className={`w-full rounded-xl ${className}`} />;
+}
 
 export function DashboardPage() {
   const { user } = useAuth();
-  const [s, setS] = useState<Summary | null>(null);
-  const [ext, setExt] = useState<DashboardExtended | null>(null);
+  const orgId = user?.organization_id ?? 0;
+  const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
+  const [trend, setTrend] = useState<Array<{ date: string; count: number }>>([]);
+  const [valueHistory, setValueHistory] = useState<
+    Array<{ date: string; value: number }> | null
+  >(null);
+  const [statusChart, setStatusChart] = useState<
+    Array<{ status: string; value: number; label: string }> | null
+  >(null);
+  const [depreciation, setDepreciation] = useState<unknown>(null);
+  const [newAssets, setNewAssets] = useState<unknown>(null);
+  const [location, setLocation] = useState<unknown>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiRequest<Summary>("/api/v1/dashboard/summary").then(setS).catch(() => setS(null));
-    apiRequest<DashboardExtended>("/api/v1/dashboard/extended").then(setExt).catch(() => setExt(null));
-  }, []);
+    if (!orgId) {
+      setLoading(false);
+      return;
+    }
+    Promise.all([
+      getDashboardSummary(orgId).then(setSummary),
+      getAssetTrend(orgId, "3m", "week").then(setTrend),
+      getAssetValueHistory(orgId, "3m", "week").then(setValueHistory),
+      getAssetStatusChart(orgId).then(setStatusChart),
+      getDepreciationHistoryDashboard(orgId, "3y").then(setDepreciation),
+      getNewAssetsDashboard(orgId).then(setNewAssets),
+      getAssetLocationDashboard(orgId).then(setLocation),
+    ]).finally(() => setLoading(false));
+  }, [orgId]);
 
-  const kpi = ext
-    ? [
-        { label: "มูลค่าสินทรัพย์รวม", value: `฿${ext.total_asset_value.toLocaleString()}` },
-        { label: "มูลค่าสุทธิ", value: `฿${ext.net_book_value.toLocaleString()}` },
-        { label: "ค่าเสื่อมสะสม", value: `฿${ext.accumulated_depreciation.toLocaleString()}` },
-        { label: "จำนวนสินทรัพย์", value: ext.total_assets },
-        { label: "สินทรัพย์ใหม่ปีนี้", value: ext.new_assets_this_year },
-        { label: "ตรวจนับ (กำลังทำ)", value: s?.audit_ongoing ?? "—" },
-      ]
-    : [
-        { label: "สินทรัพย์", value: s?.asset_count ?? "—" },
-        { label: "สมาชิก", value: s?.user_count ?? "—" },
-        { label: "ตรวจนับ (กำลังทำ)", value: s?.audit_ongoing ?? "—" },
-        { label: "ซ่อม (รอ)", value: s?.repair_pending ?? "—" },
-        { label: "เบิก/ยืม (รอ)", value: s?.withdrawal_pending ?? "—" },
-      ];
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-4 p-4">
+        <CardSkeleton className="h-32" />
+        <CardSkeleton />
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <p className="text-muted-foreground text-sm">
-        องค์กร: {user?.organization?.name} — แดชบอร์ดภาพรวม
-      </p>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {kpi.map((c) => (
-          <Card key={c.label}>
-            <CardHeader>
-              <CardTitle className="text-base">{c.label}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-semibold tabular-nums">{c.value}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-      {ext && (
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">แนวโน้มจำนวนสินทรัพย์</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <SimpleBarChart labels={ext.trend.labels} values={ext.trend.values} />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">สถานะสินทรัพย์</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <StatusBars items={ext.status_breakdown} />
-              <Link to="/assets/list" className="text-primary mt-3 inline-block text-sm hover:underline">
-                ดูรายการสินทรัพย์ →
-              </Link>
-            </CardContent>
-          </Card>
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle className="text-base">ที่ตั้งสินทรัพย์</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <StatusBars items={ext.location_breakdown} />
-            </CardContent>
-          </Card>
+    <div className="flex flex-1 flex-col" data-testid={TEST_IDS.DASHBOARD.TAB_OVERVIEW}>
+      <div className="@container/main flex flex-1 flex-col gap-2">
+        <div className="flex flex-col gap-3 py-4 md:gap-4 md:py-6">
+          <div data-testid={TEST_IDS.DASHBOARD.SECTION_KPI}>
+            <SectionCards data={summary} />
+          </div>
+
+          <div className="px-4 lg:px-6">
+            <ChartAreaInteractive
+              organizationID={orgId}
+              initialData={trend}
+              initialRangeId="3m"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 px-4 lg:grid-cols-2 lg:px-6">
+            <AssetValueHistoryChart
+              organizationID={orgId}
+              initialData={valueHistory ?? []}
+              initialRangeId="3m"
+            />
+            <AssetStatusChart data={statusChart} />
+          </div>
+
+          <DepreciationSection
+            organizationID={orgId}
+            data={depreciation as never}
+            initialRangeId="3y"
+          />
+
+          <NewAssetsSection data={newAssets as never} />
+
+          <AssetLocationSection data={location as never} />
         </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -1,59 +1,59 @@
 import { useEffect, useState } from "react";
+import {
+  RepairKpiCards,
+  RepairStatusChart,
+  RepairMonthlyChart,
+  RepairPendingTable,
+} from "@/components/dashboard/repair";
 import { apiRequest } from "@/lib/api";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { SimpleBarChart } from "@/components/charts/BarChart";
-import { DataTable } from "@/components/data/DataTable";
-import type { ListRow } from "@/lib/api";
+
+type RepairDashboardData = {
+  summary?: {
+    pending?: number;
+    completed?: number;
+    inProgress?: number;
+    cancelled?: number;
+  };
+  status?: unknown[];
+  monthly?: unknown[];
+  pendingRepairs?: { data: unknown[]; total: number };
+};
 
 export function RepairDashboardPage() {
-  const [data, setData] = useState<{
-    pending: number;
-    repairs: ListRow[];
-    monthly: { month: string; count: number }[];
-  } | null>(null);
+  const [data, setData] = useState<RepairDashboardData | null>(null);
 
   useEffect(() => {
-    apiRequest("/dashboard/repair/initial-data").then(setData).catch(() => setData(null));
+    apiRequest<{ data?: RepairDashboardData }>("/dashboard/repair/initial-data")
+      .then((res) => setData(res.data ?? (res as RepairDashboardData)))
+      .catch(() => setData(null));
   }, []);
 
+  const summary = data?.summary ?? {
+    pending: (data as { pending?: number })?.pending ?? 0,
+    completed: 0,
+    inProgress: 0,
+    cancelled: 0,
+  };
+
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">รอดำเนินการ</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-3xl font-semibold">{data?.pending ?? "—"}</p>
-        </CardContent>
-      </Card>
-      {data?.monthly && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">แนวโน้มรายเดือน</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <SimpleBarChart
-              labels={data.monthly.map((m) => m.month)}
-              values={data.monthly.map((m) => m.count)}
-            />
-          </CardContent>
-        </Card>
-      )}
-      <Card>
-        <CardHeader>
-          <CardTitle>รายการซ่อม</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <DataTable
-            columns={[
-              { key: "title", label: "เลขครุภัณฑ์" },
-              { key: "subtitle", label: "รายละเอียด" },
-              { key: "status", label: "สถานะ" },
-            ]}
-            rows={data?.repairs ?? []}
-          />
-        </CardContent>
-      </Card>
+    <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-2xl font-bold tracking-tight">รายงานการซ่อมบำรุง</h1>
+        <p className="text-muted-foreground">ภาพรวมงานแจ้งซ่อมและสถานะดำเนินการ</p>
+      </div>
+      <RepairKpiCards data={summary} />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <RepairStatusChart data={summary} />
+        <RepairMonthlyChart data={(data?.monthly ?? []) as never} />
+      </div>
+      <RepairPendingTable
+        initialData={
+          (data?.pendingRepairs as { data: unknown[]; total: number }) ?? {
+            data: [],
+            total: 0,
+          }
+        }
+      />
     </div>
   );
 }

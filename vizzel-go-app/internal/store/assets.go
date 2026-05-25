@@ -3,10 +3,12 @@ package store
 import "fmt"
 
 type AssetFilter struct {
-	Search     string
-	CategoryID int64
-	ClassID    int64
-	StatusName string
+	Search       string
+	CategoryID   int64
+	TypeID       int64
+	ClassID      int64
+	StatusName   string
+	AssetStatusID int64
 }
 
 type AssetListResult struct {

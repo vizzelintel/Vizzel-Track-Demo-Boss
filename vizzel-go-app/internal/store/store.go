@@ -64,7 +64,10 @@ func Open(ctx context.Context, dbURL, sqlitePath string) (Store, error) {
 	if dbURL != "" {
 		return openPostgres(ctx, dbURL)
 	}
-	return openSQLite(ctx, sqlitePath)
+	if sqlitePath != "" {
+		return openSQLite(ctx, sqlitePath)
+	}
+	return nil, fmt.Errorf("DATABASE_URL or SUPABASE_DB_URL required (Postgres only)")
 }
 
 func assetNumber(i int) string {

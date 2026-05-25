@@ -8,27 +8,65 @@ export function setToken(token: string) {
   localStorage.setItem(TOKEN_KEY, token);
 }
 
+export function setAccessToken(token: string) {
+  setToken(token);
+}
+
 export function clearToken() {
   localStorage.removeItem(TOKEN_KEY);
 }
 
-export async function apiRequest<T>(
+export const BASE_URL = "";
+
+type ApiOptions = RequestInit & {
+  responseType?: "json" | "blob";
+  timeout?: number;
+};
+
+export const fetcher = (url: string) => apiRequest(url);
+
+export async function apiRequest<T = unknown>(
   path: string,
-  init: RequestInit = {},
+  init: ApiOptions = {},
 ): Promise<T> {
   const headers = new Headers(init.headers);
-  if (!headers.has("Content-Type") && init.body) {
+  const isForm = init.body instanceof FormData;
+  if (!isForm && init.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
   const token = getToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
-  const res = await fetch(path, { ...init, headers });
+  const controller = new AbortController();
+  const timeout = init.timeout ?? 60000;
+  const timer = setTimeout(() => controller.abort(), timeout);
+
+  const res = await fetch(path, {
+    ...init,
+    headers,
+    signal: controller.signal,
+  });
+  clearTimeout(timer);
+
+  if (init.responseType === "blob") {
+    if (!res.ok) throw new Error(res.statusText);
+    return (await res.blob()) as T;
+  }
+
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error((data as { error?: string }).error || res.statusText);
+    const msg =
+      (data as { error?: string; message?: string }).error ||
+      (data as { message?: string }).message ||
+      res.statusText;
+    throw new Error(msg);
   }
   return data as T;
+}
+
+export async function getSessionSingleton() {
+  const { getSession } = await import("next-auth/react");
+  return getSession();
 }
 
 export async function apiDownload(path: string, filename: string) {
@@ -51,7 +89,10 @@ export type User = {
   email: string;
   display_name: string;
   organization_id: number;
+  organizationID?: number;
   role_id: number;
+  roleID?: number;
+  isOrgVerified?: boolean;
   organization?: { id: number; name: string };
 };
 

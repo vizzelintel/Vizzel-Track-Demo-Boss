@@ -1,9 +1,11 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/vizzelintel/vizzel-track-demo-boss/vizzel-go-app/internal/store"
@@ -21,6 +23,7 @@ func MountProductionRoutes(r chi.Router, h *Handler) {
 	r.Get("/asset/template", h.AssetTemplate)
 	r.Post("/asset/export", h.CompatAssetExport)
 	r.Post("/asset/import", h.AssetImport)
+	r.Post("/asset/import/convert-elaas", h.ConvertElaasImport)
 	r.Get("/asset/category/get_all", h.CompatCategories)
 	r.Get("/asset/type/get_all", h.CompatTypes)
 	r.Get("/asset/class/get_all", h.CompatClasses)
@@ -28,14 +31,27 @@ func MountProductionRoutes(r chi.Router, h *Handler) {
 	r.Post("/asset/structure/export", h.StructureExport)
 	r.Post("/asset/structure/import", h.StructureImport)
 
-	r.Get("/dashboard/summary/{orgID}", h.CompatDashboardSummary)
+	r.Get("/dashboard/summary/{orgID}", h.CompatDashboardSummaryWrapped)
 	r.Get("/dashboard/extended/{orgID}", h.CompatDashboardExtended)
-	r.Get("/dashboard/trend/{orgID}", h.CompatDashboardTrend)
-	r.Get("/dashboard/status/{orgID}", h.CompatDashboardStatus)
-	r.Get("/dashboard/location/{orgID}", h.CompatDashboardLocation)
-	r.Get("/dashboard/personal/summary", h.PersonalDashboard)
+	r.Get("/dashboard/trend/{orgID}", h.CompatDashboardTrendWrapped)
+	r.Get("/dashboard/status/{orgID}", h.CompatDashboardStatusWrapped)
+	r.Get("/dashboard/location/{orgID}", h.CompatDashboardLocationWrapped)
+	r.Get("/dashboard/value-history/{orgID}", h.CompatDashboardValueHistory)
+	r.Get("/dashboard/depreciation/{orgID}", h.CompatDashboardDepreciation)
+	r.Get("/dashboard/new-assets/{orgID}", h.CompatDashboardNewAssets)
+	r.Get("/dashboard/personal/summary", h.CompatPersonalSummary)
+	r.Get("/dashboard/personal/status", h.CompatPersonalStatus)
+	r.Get("/dashboard/personal/category", h.CompatPersonalCategory)
+	r.Get("/dashboard/personal/assets", h.CompatPersonalAssets)
 	r.Get("/dashboard/personal/initial-data", h.PersonalDashboard)
-	r.Get("/dashboard/repair/initial-data", h.RepairDashboard)
+	r.Get("/dashboard/repair/initial-data", h.CompatRepairInitialData)
+	r.Get("/dashboard/repair/monthly", h.CompatRepairMonthly)
+	r.Get("/asset/doc/get/{assetID}", h.CompatAssetDocGet)
+	r.Post("/asset/doc/create", h.CompatAssetDocCreate)
+	r.Patch("/asset/doc/delete", h.CompatAssetDocDelete)
+	r.Get("/asset/doc/class/doc/get/{classID}", h.CompatAssetClassDocGet)
+	r.Get("/checkJob/history/{assetID}", h.CompatCheckJobHistory)
+	r.Post("/asset/depreciation/create", h.CompatAssetDocCreate)
 	r.Get("/warranty/initial-data/{orgID}", h.WarrantyInitialData)
 	r.Get("/warranty/summary/{orgID}", h.WarrantySummary)
 
@@ -57,6 +73,98 @@ func orgIDFromQueryOrClaims(r *http.Request) (int64, bool) {
 	return orgIDFromRequest(r)
 }
 
+func (h *Handler) buildCompatReference(ctx context.Context, orgID int64) map[string]any {
+	ref, _ := h.store.AssetReferenceData(ctx, orgID)
+	if ref == nil {
+		ref = &store.AssetReferenceData{}
+	}
+	cats := make([]map[string]any, 0, len(ref.Categories))
+	for _, r := range ref.Categories {
+		cats = append(cats, rowToCategory(r))
+	}
+	types := make([]map[string]any, 0, len(ref.Types))
+	for _, r := range ref.Types {
+		types = append(types, rowToType(r))
+	}
+	classes := make([]map[string]any, 0, len(ref.Classes))
+	for _, r := range ref.Classes {
+		classes = append(classes, rowToClass(r))
+	}
+	statuses := make([]map[string]any, 0, len(ref.Statuses))
+	for _, r := range ref.Statuses {
+		statuses = append(statuses, rowToStatus(r))
+	}
+	buildings, _ := h.store.ListBuildings(ctx, orgID)
+	bld := make([]map[string]any, 0, len(buildings))
+	for _, r := range buildings {
+		bld = append(bld, rowToBuilding(r))
+	}
+	rooms, _ := h.store.ListRooms(ctx, orgID)
+	rms := make([]map[string]any, 0, len(rooms))
+	for _, r := range rooms {
+		rms = append(rms, rowToRoom(r))
+	}
+	users, _ := h.store.ListUsers(ctx, orgID)
+	usr := make([]map[string]any, 0, len(users))
+	for _, r := range users {
+		usr = append(usr, rowToUser(r))
+	}
+	depts, _ := h.store.ListDepartments(ctx, orgID)
+	inst, _ := h.store.ListInstitutes(ctx, orgID)
+	secs, _ := h.store.ListSections(ctx, orgID)
+	return map[string]any{
+		"categories":  cats,
+		"types":       types,
+		"classes":     classes,
+		"statuses":    statuses,
+		"buildings":   bld,
+		"rooms":       rms,
+		"users":       map[string]any{"data": usr, "total": len(usr)},
+		"getBy":       []any{map[string]any{"id": 1, "name": "จัดซื้อ"}, map[string]any{"id": 2, "name": "บริจาค"}},
+		"sourceFund":  []any{map[string]any{"id": 1, "name": "งบประมาณแผ่นดิน"}, map[string]any{"id": 2, "name": "รายได้"}},
+		"departments": rowsToNamed(depts, "deptName"),
+		"institutes":  rowsToNamed(inst, "institute_name"),
+		"sections":    rowsToNamed(secs, "section_name"),
+	}
+}
+
+func parseAssetListFilter(r *http.Request, orgID int64, storeInst store.Store) store.AssetFilter {
+	f := store.AssetFilter{Search: r.URL.Query().Get("search")}
+	if v := firstCSVInt(r.URL.Query().Get("categoryID")); v > 0 {
+		f.CategoryID = v
+	}
+	if v := firstCSVInt(r.URL.Query().Get("assetTypeID")); v > 0 {
+		f.TypeID = v
+	}
+	if v := firstCSVInt(r.URL.Query().Get("assetClassID")); v > 0 {
+		f.ClassID = v
+	}
+	if sid := r.URL.Query().Get("assetStatusID"); sid != "" {
+		if id, err := strconv.ParseInt(sid, 10, 64); err == nil {
+			f.AssetStatusID = id
+			ref, _ := storeInst.AssetReferenceData(r.Context(), orgID)
+			if ref != nil {
+				for _, st := range ref.Statuses {
+					if st.ID == id {
+						f.StatusName = st.Title
+						break
+					}
+				}
+			}
+		}
+	}
+	return f
+}
+
+func firstCSVInt(s string) int64 {
+	if s == "" {
+		return 0
+	}
+	parts := strings.Split(s, ",")
+	v, _ := strconv.ParseInt(strings.TrimSpace(parts[0]), 10, 64)
+	return v
+}
+
 func (h *Handler) CompatAssetInitialData(w http.ResponseWriter, r *http.Request) {
 	orgID, _ := strconv.ParseInt(chi.URLParam(r, "orgID"), 10, 64)
 	page, _ := strconv.Atoi(chi.URLParam(r, "page"))
@@ -69,18 +177,25 @@ func (h *Handler) CompatAssetInitialData(w http.ResponseWriter, r *http.Request)
 	if orgID == 0 {
 		orgID = claims.OrganizationID
 	}
-	ref, _ := h.store.AssetReferenceData(r.Context(), orgID)
+	refBundle := h.buildCompatReference(r.Context(), orgID)
 	result, _ := h.store.ListAssetsPaged(r.Context(), orgID, page, pageSize, store.AssetFilter{})
 	writeJSON(w, http.StatusOK, map[string]any{
-		"data":           result.Data,
-		"total":          result.Total,
-		"page":           result.Page,
-		"pageSize":       result.PageSize,
-		"categories":     ref.Categories,
-		"types":          ref.Types,
-		"classes":        ref.Classes,
-		"statuses":       ref.Statuses,
-		"referenceData":  ref,
+		"assets": map[string]any{
+			"data":  toCompatAssets(result.Data),
+			"total": result.Total,
+		},
+		"categories":  refBundle["categories"],
+		"types":       refBundle["types"],
+		"classes":     refBundle["classes"],
+		"statuses":    refBundle["statuses"],
+		"buildings":   refBundle["buildings"],
+		"rooms":       refBundle["rooms"],
+		"users":       refBundle["users"],
+		"getBy":       refBundle["getBy"],
+		"sourceFund":  refBundle["sourceFund"],
+		"departments": refBundle["departments"],
+		"institutes":  refBundle["institutes"],
+		"sections":    refBundle["sections"],
 	})
 }
 
@@ -96,22 +211,13 @@ func (h *Handler) CompatAssetList(w http.ResponseWriter, r *http.Request) {
 	if orgID == 0 {
 		orgID = claims.OrganizationID
 	}
-	f := store.AssetFilter{
-		Search:     r.URL.Query().Get("search"),
-		StatusName: r.URL.Query().Get("status"),
-	}
-	if v, err := strconv.ParseInt(r.URL.Query().Get("categoryID"), 10, 64); err == nil {
-		f.CategoryID = v
-	}
-	if v, err := strconv.ParseInt(r.URL.Query().Get("assetClassID"), 10, 64); err == nil {
-		f.ClassID = v
-	}
+	f := parseAssetListFilter(r, orgID, h.store)
 	result, err := h.store.ListAssetsPaged(r.Context(), orgID, page, pageSize, f)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "list failed")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": result.Data, "total": result.Total})
+	writeJSON(w, http.StatusOK, map[string]any{"data": toCompatAssets(result.Data), "total": result.Total})
 }
 
 func (h *Handler) CompatAssetOne(w http.ResponseWriter, r *http.Request) {
@@ -126,7 +232,7 @@ func (h *Handler) CompatAssetOne(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not found")
 		return
 	}
-	writeJSON(w, http.StatusOK, a)
+	writeJSON(w, http.StatusOK, map[string]any{"data": toCompatAsset(*a)})
 }
 
 func (h *Handler) CompatAssetCreate(w http.ResponseWriter, r *http.Request) {
@@ -145,7 +251,7 @@ func (h *Handler) CompatAssetCreate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "create failed")
 		return
 	}
-	writeJSON(w, http.StatusOK, a)
+	writeJSON(w, http.StatusOK, map[string]any{"data": toCompatAsset(*a)})
 }
 
 func (h *Handler) CompatAssetUpdate(w http.ResponseWriter, r *http.Request) {
@@ -188,10 +294,13 @@ func (h *Handler) CompatAssetBulkDelete(w http.ResponseWriter, r *http.Request) 
 		AssetIDs []int64 `json:"assetIDs"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
+	deleted := make([]int64, 0, len(body.AssetIDs))
 	for _, id := range body.AssetIDs {
-		_ = h.store.DeleteAsset(r.Context(), claims.OrganizationID, id)
+		if err := h.store.DeleteAsset(r.Context(), claims.OrganizationID, id); err == nil {
+			deleted = append(deleted, id)
+		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"deleted": len(body.AssetIDs)})
+	writeJSON(w, http.StatusOK, map[string]any{"data": deleted, "errors": []any{}})
 }
 
 func (h *Handler) CompatAssetExport(w http.ResponseWriter, r *http.Request) {
@@ -199,15 +308,59 @@ func (h *Handler) CompatAssetExport(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CompatCategories(w http.ResponseWriter, r *http.Request) {
-	h.ListAssetCategories(w, r)
+	orgID, ok := orgIDFromQueryOrClaims(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	rows, err := h.store.ListAssetCategories(r.Context(), orgID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "list failed")
+		return
+	}
+	out := make([]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, rowToCategory(row))
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 func (h *Handler) CompatTypes(w http.ResponseWriter, r *http.Request) {
-	h.ListAssetTypes(w, r)
+	orgID, ok := orgIDFromQueryOrClaims(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	catID := firstCSVInt(r.URL.Query().Get("categoryID"))
+	rows, err := h.store.ListAssetTypes(r.Context(), orgID, catID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "list failed")
+		return
+	}
+	out := make([]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, rowToType(row))
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 func (h *Handler) CompatClasses(w http.ResponseWriter, r *http.Request) {
-	h.ListAssetClassesFiltered(w, r)
+	orgID, ok := orgIDFromQueryOrClaims(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	typeID := firstCSVInt(r.URL.Query().Get("typeID"))
+	rows, err := h.store.ListAssetClasses(r.Context(), orgID, typeID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "list failed")
+		return
+	}
+	out := make([]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, rowToClass(row))
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 func (h *Handler) CompatDashboardSummary(w http.ResponseWriter, r *http.Request) {

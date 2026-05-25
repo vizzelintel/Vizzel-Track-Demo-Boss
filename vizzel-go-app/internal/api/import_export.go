@@ -62,7 +62,40 @@ func (h *Handler) AssetImport(w http.ResponseWriter, r *http.Request) {
 			imported++
 		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"imported": imported, "failed": failed})
+	dryRun := r.FormValue("dryRun") == "true"
+	resp := map[string]any{
+		"imported":       imported,
+		"failed":         failed,
+		"created":        imported,
+		"updated":        0,
+		"errors":         []any{},
+		"successes":      []any{},
+		"newCategories":  []any{},
+		"newTypes":       []any{},
+		"newClasses":     []any{},
+		"newBuildings":   []any{},
+		"newRooms":       []any{},
+		"newStatuses":    []any{},
+	}
+	if dryRun {
+		resp["imported"] = 0
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (h *Handler) ConvertElaasImport(w http.ResponseWriter, r *http.Request) {
+	file, _, err := r.FormFile("file")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "file required")
+		return
+	}
+	defer file.Close()
+	data, err := io.ReadAll(file)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "read failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"csv": string(data)})
 }
 
 func pick(row []string, i int) string {
@@ -212,7 +245,11 @@ func (h *Handler) UserInitialData(w http.ResponseWriter, r *http.Request) {
 		orgID = claims.OrganizationID
 	}
 	users, _ := h.store.ListUsers(r.Context(), orgID)
-	writeJSON(w, http.StatusOK, map[string]any{"users": users})
+	usr := make([]map[string]any, 0, len(users))
+	for _, u := range users {
+		usr = append(usr, rowToUser(u))
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": usr, "users": map[string]any{"data": usr}})
 }
 
 func (h *Handler) OrgInitialData(w http.ResponseWriter, r *http.Request) {

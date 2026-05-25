@@ -93,7 +93,7 @@ func (s *postgresStore) DashboardExtended(ctx context.Context, orgID int64) (*Da
 		for rows2.Next() {
 			var name string
 			var c int
-			_ = rows.Scan(&name, &c)
+			_ = rows2.Scan(&name, &c)
 			d.LocationBreakdown = append(d.LocationBreakdown, StatusSlice{Name: name, Count: c})
 		}
 	}

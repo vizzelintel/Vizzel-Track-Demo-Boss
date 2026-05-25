@@ -25,8 +25,8 @@ func Load() Config {
 	return Config{
 		Addr:           envOr("ADDR", ":8080"),
 		JWTSecret:      os.Getenv("JWT_SECRET"),
-		DBURL:          os.Getenv("SUPABASE_DB_URL"),
-		SQLitePath:     envOr("SQLITE_PATH", "vizzel_demo.db"),
+		DBURL:          envOr("DATABASE_URL", os.Getenv("SUPABASE_DB_URL")),
+		SQLitePath:     envOr("SQLITE_PATH", ""), // Postgres only — set SQLITE_PATH only for local override
 		DemoEmail:      envOr("DEMO_EMAIL", "admin@demo.local"),
 		DemoPassword:   envOr("DEMO_PASSWORD", "demo1234"),
 		SeedAssetCount: seedCount,

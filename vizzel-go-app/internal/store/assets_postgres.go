@@ -57,6 +57,11 @@ func (s *postgresStore) ListAssetsPaged(ctx context.Context, orgID int64, page, 
 		args = append(args, f.CategoryID)
 		n++
 	}
+	if f.TypeID > 0 {
+		where += fmt.Sprintf(` AND category_id = $%d`, n)
+		args = append(args, f.TypeID)
+		n++
+	}
 	if f.ClassID > 0 {
 		where += fmt.Sprintf(` AND class_id = $%d`, n)
 		args = append(args, f.ClassID)

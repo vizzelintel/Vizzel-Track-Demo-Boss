@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { EntityCrudPage } from "@/components/data/EntityCrudPage";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/button";
 import type { ListRow } from "@/lib/api";
 
 export function AuditOngoingPage() {
