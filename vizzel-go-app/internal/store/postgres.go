@@ -16,7 +16,13 @@ type postgresStore struct {
 }
 
 func openPostgres(ctx context.Context, dbURL string) (Store, error) {
-	pool, err := pgxpool.New(ctx, dbURL)
+	cfg, err := pgxpool.ParseConfig(dbURL)
+	if err != nil {
+		return nil, err
+	}
+	// Supabase transaction pooler (port 6543) does not support prepared statements.
+	cfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
