@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     try {
-      const me = await apiRequest<User>("/api/v1/auth/me");
+      const me = await apiRequest<User>("/api/v1/auth/me", { timeout: 8000 });
       setUser(me);
     } catch {
       clearToken();

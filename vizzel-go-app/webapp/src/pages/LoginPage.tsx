@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Eye, EyeOff } from "lucide-react";
 import { TEST_IDS } from "@/components/test-ids";
-import { apiRequest, setAccessToken } from "@/lib/api";
+import { setAccessToken } from "@/lib/api";
 
 function LoginContent() {
   type LoginFormInputs = {
@@ -100,26 +100,13 @@ function LoginContent() {
             const sess = await getSession();
             if (sess?.accessToken) {
               setAccessToken(sess.accessToken);
-              if (sess.user?.roleID === 1) {
-                try {
-                  const orgCheck = await apiRequest<{ hasOrgSelection?: boolean }>(
-                    "/auth/check-org-selection",
-                  );
-                  if (orgCheck?.hasOrgSelection) {
-                    window.location.href = "/select-organization";
-                    return;
-                  }
-                } catch {
-                  /* compat route may be unavailable */
-                }
-              }
               break;
             }
           } catch (e) {
             console.warn("[Login] Session check attempt failed", e);
           }
         }
-        window.location.href = "/dashboard";
+        window.location.replace("/dashboard");
       }
     } catch (err: unknown) {
       console.error("[Login] Submission error:", err);

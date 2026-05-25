@@ -38,7 +38,7 @@ export async function apiRequest<T = unknown>(
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
   const controller = new AbortController();
-  const timeout = init.timeout ?? 60000;
+  const timeout = init.timeout ?? 20000;
   const timer = setTimeout(() => controller.abort(), timeout);
 
   const res = await fetch(path, {

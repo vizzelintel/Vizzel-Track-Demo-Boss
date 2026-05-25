@@ -25,9 +25,13 @@ export async function getSession() {
   const token = getToken();
   if (!token) return null;
   try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
     const res = await fetch("/api/v1/auth/me", {
       headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal,
     });
+    clearTimeout(timer);
     if (!res.ok) return null;
     const user = await res.json();
     return {
@@ -58,11 +62,15 @@ export async function signIn(
     return { error: "CredentialsSignin", ok: false };
   }
   try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
     const res = await fetch("/api/v1/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: options.email, password: options.password }),
+      signal: controller.signal,
     });
+    clearTimeout(timer);
     const data = await res.json();
     if (!res.ok) return { error: "CredentialsSignin", ok: false };
     localStorage.setItem("vizzel_access_token", data.access_token);

@@ -1,81 +1,164 @@
-import type { ReactNode } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import { ProtectedLayout } from "./components/layout/ProtectedLayout";
-import { LoginPage } from "./pages/LoginPage";
-import { DashboardPage } from "./pages/DashboardPage";
-import { PersonalDashboardPage } from "./pages/PersonalDashboardPage";
-import { AssetsListPage } from "./pages/AssetsListPage";
-import { AssetsStructurePage } from "./pages/AssetsStructurePage";
-import { OrganizationPage } from "./pages/OrganizationPage";
-import { OrganizationStructurePage } from "./pages/OrganizationStructurePage";
-import { ProfilePage } from "./pages/ProfilePage";
-import { EntityCrudPage } from "./components/data/EntityCrudPage";
-import { AuditOngoingPage } from "./pages/AuditOngoingPage";
-import { AuditJobPage } from "./pages/AuditJobPage";
-import { WithdrawalApprovalPage } from "./pages/withdrawal/withdrawal-approval/page";
-import { UsersPage } from "./pages/users/page";
-import { WithdrawalPage } from "./pages/withdrawal/page";
-import { WithdrawalDashboardPage } from "./pages/withdrawal/dashboard/page";
-import { SuperAdminDashboardPage } from "./pages/SuperAdminDashboardPage";
-import { SuperAdminMenusPage } from "./pages/SuperAdminMenusPage";
-import { SuperAdminOrgAccessPage } from "./pages/SuperAdminOrgAccessPage";
-import { DocumentsPage } from "./pages/DocumentsPage";
-import { DocumentDetailPage } from "./pages/DocumentDetailPage";
-import { InboxPage } from "./pages/InboxPage";
-import { RegisterPage } from "./pages/RegisterPage";
-import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
-import { WarrantyReportsPage } from "./pages/WarrantyReportsPage";
-import { RepairDashboardPage } from "./pages/RepairDashboardPage";
-import { AssetTaxonomyPage } from "./pages/AssetTaxonomyPage";
 import { AuthLayout } from "./components/layout/AuthLayout";
+import { PageLoader } from "./components/PageLoader";
+import { getToken } from "@/lib/api";
+import { EntityCrudPage } from "./components/data/EntityCrudPage";
+
+const LoginPage = lazy(() =>
+  import("./pages/LoginPage").then((m) => ({ default: m.LoginPage })),
+);
+const RegisterPage = lazy(() =>
+  import("./pages/RegisterPage").then((m) => ({ default: m.RegisterPage })),
+);
+const ForgotPasswordPage = lazy(() =>
+  import("./pages/ForgotPasswordPage").then((m) => ({ default: m.ForgotPasswordPage })),
+);
+const DashboardPage = lazy(() =>
+  import("./pages/DashboardPage").then((m) => ({ default: m.DashboardPage })),
+);
+const PersonalDashboardPage = lazy(() =>
+  import("./pages/PersonalDashboardPage").then((m) => ({ default: m.PersonalDashboardPage })),
+);
+const AssetsListPage = lazy(() =>
+  import("./pages/AssetsListPage").then((m) => ({ default: m.AssetsListPage })),
+);
+const AssetsStructurePage = lazy(() =>
+  import("./pages/AssetsStructurePage").then((m) => ({ default: m.AssetsStructurePage })),
+);
+const OrganizationPage = lazy(() =>
+  import("./pages/OrganizationPage").then((m) => ({ default: m.OrganizationPage })),
+);
+const OrganizationStructurePage = lazy(() =>
+  import("./pages/OrganizationStructurePage").then((m) => ({ default: m.OrganizationStructurePage })),
+);
+const ProfilePage = lazy(() =>
+  import("./pages/ProfilePage").then((m) => ({ default: m.ProfilePage })),
+);
+const AuditOngoingPage = lazy(() =>
+  import("./pages/AuditOngoingPage").then((m) => ({ default: m.AuditOngoingPage })),
+);
+const AuditJobPage = lazy(() =>
+  import("./pages/AuditJobPage").then((m) => ({ default: m.AuditJobPage })),
+);
+const WithdrawalApprovalPage = lazy(() =>
+  import("./pages/withdrawal/withdrawal-approval/page").then((m) => ({
+    default: m.WithdrawalApprovalPage,
+  })),
+);
+const UsersPage = lazy(() =>
+  import("./pages/users/page").then((m) => ({ default: m.UsersPage })),
+);
+const WithdrawalPage = lazy(() =>
+  import("./pages/withdrawal/page").then((m) => ({ default: m.WithdrawalPage })),
+);
+const WithdrawalDashboardPage = lazy(() =>
+  import("./pages/withdrawal/dashboard/page").then((m) => ({
+    default: m.WithdrawalDashboardPage,
+  })),
+);
+const SuperAdminDashboardPage = lazy(() =>
+  import("./pages/SuperAdminDashboardPage").then((m) => ({
+    default: m.SuperAdminDashboardPage,
+  })),
+);
+const SuperAdminMenusPage = lazy(() =>
+  import("./pages/SuperAdminMenusPage").then((m) => ({ default: m.SuperAdminMenusPage })),
+);
+const SuperAdminOrgAccessPage = lazy(() =>
+  import("./pages/SuperAdminOrgAccessPage").then((m) => ({
+    default: m.SuperAdminOrgAccessPage,
+  })),
+);
+const DocumentsPage = lazy(() =>
+  import("./pages/DocumentsPage").then((m) => ({ default: m.DocumentsPage })),
+);
+const DocumentDetailPage = lazy(() =>
+  import("./pages/DocumentDetailPage").then((m) => ({ default: m.DocumentDetailPage })),
+);
+const InboxPage = lazy(() =>
+  import("./pages/InboxPage").then((m) => ({ default: m.InboxPage })),
+);
+const WarrantyReportsPage = lazy(() =>
+  import("./pages/WarrantyReportsPage").then((m) => ({ default: m.WarrantyReportsPage })),
+);
+const RepairDashboardPage = lazy(() =>
+  import("./pages/RepairDashboardPage").then((m) => ({ default: m.RepairDashboardPage })),
+);
+const AssetTaxonomyPage = lazy(() =>
+  import("./pages/AssetTaxonomyPage").then((m) => ({ default: m.AssetTaxonomyPage })),
+);
+
+function Lazy({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<PageLoader />}>{children}</Suspense>;
+}
 
 function Protected({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
+  if (!getToken()) {
+    return <Navigate to="/login" replace />;
+  }
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
-        กำลังโหลด...
-      </div>
-    );
+    return <PageLoader label="กำลังตรวจสอบการเข้าสู่ระบบ..." />;
   }
   if (!user) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 
+function PublicOnly({
+  children,
+  redirect = "/dashboard",
+}: {
+  children: ReactNode;
+  redirect?: string;
+}) {
+  const { user, loading } = useAuth();
+  if (!getToken()) {
+    return <>{children}</>;
+  }
+  if (loading) {
+    return <PageLoader label="กำลังเข้าสู่ระบบ..." />;
+  }
+  if (user) return <Navigate to={redirect} replace />;
+  return <>{children}</>;
+}
+
 export default function App() {
-  const { user } = useAuth();
   return (
     <Routes>
       <Route
         path="/login"
         element={
-          user ? (
-            <Navigate to="/dashboard" replace />
-          ) : (
+          <PublicOnly>
             <AuthLayout>
-              <LoginPage />
+              <Lazy>
+                <LoginPage />
+              </Lazy>
             </AuthLayout>
-          )
+          </PublicOnly>
         }
       />
       <Route
         path="/register"
         element={
-          user ? (
-            <Navigate to="/dashboard" replace />
-          ) : (
+          <PublicOnly>
             <AuthLayout>
-              <RegisterPage />
+              <Lazy>
+                <RegisterPage />
+              </Lazy>
             </AuthLayout>
-          )
+          </PublicOnly>
         }
       />
       <Route
         path="/forgot-password"
         element={
           <AuthLayout>
-            <ForgotPasswordPage />
+            <Lazy>
+              <ForgotPasswordPage />
+            </Lazy>
           </AuthLayout>
         }
       />
@@ -87,10 +170,38 @@ export default function App() {
         }
       >
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/dashboard/personal" element={<PersonalDashboardPage />} />
-        <Route path="/dashboard/reports" element={<WarrantyReportsPage />} />
-        <Route path="/dashboard/repair" element={<RepairDashboardPage />} />
+        <Route
+          path="/dashboard"
+          element={
+            <Lazy>
+              <DashboardPage />
+            </Lazy>
+          }
+        />
+        <Route
+          path="/dashboard/personal"
+          element={
+            <Lazy>
+              <PersonalDashboardPage />
+            </Lazy>
+          }
+        />
+        <Route
+          path="/dashboard/reports"
+          element={
+            <Lazy>
+              <WarrantyReportsPage />
+            </Lazy>
+          }
+        />
+        <Route
+          path="/dashboard/repair"
+          element={
+            <Lazy>
+              <RepairDashboardPage />
+            </Lazy>
+          }
+        />
         <Route
           path="/dashboard/audit"
           element={
@@ -105,36 +216,83 @@ export default function App() {
             />
           }
         />
-        <Route path="/users" element={<UsersPage />} />
-        <Route path="/organization" element={<OrganizationPage />} />
-        <Route path="/organization-structure" element={<OrganizationStructurePage />} />
+        <Route
+          path="/users"
+          element={
+            <Lazy>
+              <UsersPage />
+            </Lazy>
+          }
+        />
+        <Route
+          path="/organization"
+          element={
+            <Lazy>
+              <OrganizationPage />
+            </Lazy>
+          }
+        />
+        <Route
+          path="/organization-structure"
+          element={
+            <Lazy>
+              <OrganizationStructurePage />
+            </Lazy>
+          }
+        />
         <Route path="/assets" element={<Navigate to="/assets/list" replace />} />
-        <Route path="/assets/list" element={<AssetsListPage />} />
-        <Route path="/assets/structure" element={<AssetsStructurePage />} />
+        <Route
+          path="/assets/list"
+          element={
+            <Lazy>
+              <AssetsListPage />
+            </Lazy>
+          }
+        />
+        <Route
+          path="/assets/structure"
+          element={
+            <Lazy>
+              <AssetsStructurePage />
+            </Lazy>
+          }
+        />
         <Route
           path="/assets/category"
-          element={<AssetTaxonomyPage title="หมวดสินทรัพย์" listEndpoint="/api/v1/assets/categories" entityKind="categories" />}
+          element={
+            <Lazy>
+              <AssetTaxonomyPage
+                title="หมวดสินทรัพย์"
+                listEndpoint="/api/v1/assets/categories"
+                entityKind="categories"
+              />
+            </Lazy>
+          }
         />
         <Route
           path="/assets/type"
           element={
-            <AssetTaxonomyPage
-              title="ประเภทสินทรัพย์"
-              listEndpoint="/api/v1/assets/types"
-              entityKind="types"
-              parentField={{ label: "หมวด", listEndpoint: "/api/v1/assets/categories" }}
-            />
+            <Lazy>
+              <AssetTaxonomyPage
+                title="ประเภทสินทรัพย์"
+                listEndpoint="/api/v1/assets/types"
+                entityKind="types"
+                parentField={{ label: "หมวด", listEndpoint: "/api/v1/assets/categories" }}
+              />
+            </Lazy>
           }
         />
         <Route
           path="/assets/class"
           element={
-            <AssetTaxonomyPage
-              title="กลุ่ม/ชนิดสินทรัพย์"
-              listEndpoint="/api/v1/assets/classes"
-              entityKind="classes"
-              parentField={{ label: "ประเภท", listEndpoint: "/api/v1/assets/types" }}
-            />
+            <Lazy>
+              <AssetTaxonomyPage
+                title="กลุ่ม/ชนิดสินทรัพย์"
+                listEndpoint="/api/v1/assets/classes"
+                entityKind="classes"
+                parentField={{ label: "ประเภท", listEndpoint: "/api/v1/assets/types" }}
+              />
+            </Lazy>
           }
         />
         <Route
@@ -154,8 +312,22 @@ export default function App() {
           }
         />
         <Route path="/audit" element={<Navigate to="/audit/ongoing" replace />} />
-        <Route path="/audit/ongoing" element={<AuditOngoingPage />} />
-        <Route path="/audit/ongoing/:jobID" element={<AuditJobPage />} />
+        <Route
+          path="/audit/ongoing"
+          element={
+            <Lazy>
+              <AuditOngoingPage />
+            </Lazy>
+          }
+        />
+        <Route
+          path="/audit/ongoing/:jobID"
+          element={
+            <Lazy>
+              <AuditJobPage />
+            </Lazy>
+          }
+        />
         <Route
           path="/audit/history"
           element={
@@ -186,15 +358,78 @@ export default function App() {
             />
           }
         />
-        <Route path="/withdrawal" element={<WithdrawalPage />} />
-        <Route path="/withdrawal/dashboard" element={<WithdrawalDashboardPage />} />
-        <Route path="/withdrawal-approval" element={<WithdrawalApprovalPage />} />
-        <Route path="/documents" element={<DocumentsPage />} />
-        <Route path="/documents/:id" element={<DocumentDetailPage />} />
-        <Route path="/inbox" element={<InboxPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/settings" element={<ProfilePage />} />
-        <Route path="/super-admin/dashboard" element={<SuperAdminDashboardPage />} />
+        <Route
+          path="/withdrawal"
+          element={
+            <Lazy>
+              <WithdrawalPage />
+            </Lazy>
+          }
+        />
+        <Route
+          path="/withdrawal/dashboard"
+          element={
+            <Lazy>
+              <WithdrawalDashboardPage />
+            </Lazy>
+          }
+        />
+        <Route
+          path="/withdrawal-approval"
+          element={
+            <Lazy>
+              <WithdrawalApprovalPage />
+            </Lazy>
+          }
+        />
+        <Route
+          path="/documents"
+          element={
+            <Lazy>
+              <DocumentsPage />
+            </Lazy>
+          }
+        />
+        <Route
+          path="/documents/:id"
+          element={
+            <Lazy>
+              <DocumentDetailPage />
+            </Lazy>
+          }
+        />
+        <Route
+          path="/inbox"
+          element={
+            <Lazy>
+              <InboxPage />
+            </Lazy>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <Lazy>
+              <ProfilePage />
+            </Lazy>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <Lazy>
+              <ProfilePage />
+            </Lazy>
+          }
+        />
+        <Route
+          path="/super-admin/dashboard"
+          element={
+            <Lazy>
+              <SuperAdminDashboardPage />
+            </Lazy>
+          }
+        />
         <Route
           path="/super-admin/organizations"
           element={
@@ -205,10 +440,24 @@ export default function App() {
             />
           }
         />
-        <Route path="/super-admin/menus" element={<SuperAdminMenusPage />} />
-        <Route path="/super-admin/org-access" element={<SuperAdminOrgAccessPage />} />
+        <Route
+          path="/super-admin/menus"
+          element={
+            <Lazy>
+              <SuperAdminMenusPage />
+            </Lazy>
+          }
+        />
+        <Route
+          path="/super-admin/org-access"
+          element={
+            <Lazy>
+              <SuperAdminOrgAccessPage />
+            </Lazy>
+          }
+        />
       </Route>
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
 }

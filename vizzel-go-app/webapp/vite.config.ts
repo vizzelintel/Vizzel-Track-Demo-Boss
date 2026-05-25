@@ -23,6 +23,19 @@ export default defineConfig({
   build: {
     outDir: "../internal/spa/dist",
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules")) {
+            if (id.includes("recharts") || id.includes("d3-")) return "charts";
+            if (id.includes("@tanstack")) return "table";
+            if (id.includes("exceljs")) return "excel";
+            if (id.includes("lucide-react")) return "icons";
+            return "vendor";
+          }
+        },
+      },
+    },
   },
   server: {
     port: 5173,
