@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -67,7 +66,9 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	roleID := store.DemoRoleAdminOrg
-	if email == "superadmin@demo.local" {
+	if u.RoleID > 0 {
+		roleID = u.RoleID
+	} else if email == "superadmin@demo.local" {
 		roleID = 1
 	}
 	token, err := auth.IssueToken(h.cfg.JWTSecret, u.ID, u.OrganizationID, roleID, u.Email, 24*time.Hour)
@@ -114,34 +115,6 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 			"id":   claims.OrganizationID,
 			"name": "Demo Organization",
 		},
-	})
-}
-
-func (h *Handler) ListAssets(w http.ResponseWriter, r *http.Request) {
-	claims, ok := claimsFromContext(r.Context())
-	if !ok {
-		writeError(w, http.StatusUnauthorized, "unauthorized")
-		return
-	}
-
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	cursor, _ := strconv.ParseInt(r.URL.Query().Get("cursor"), 10, 64)
-
-	items, next, hasMore, err := h.store.ListAssets(r.Context(), claims.OrganizationID, cursor, limit)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "list assets failed")
-		return
-	}
-
-	var nextCursor any
-	if hasMore && next > 0 {
-		nextCursor = strconv.FormatInt(next, 10)
-	}
-
-	writeJSON(w, http.StatusOK, map[string]any{
-		"data":        items,
-		"next_cursor": nextCursor,
-		"has_more":    hasMore,
 	})
 }
 

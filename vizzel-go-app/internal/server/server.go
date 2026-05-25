@@ -26,21 +26,56 @@ func New(cfg config.Config, st store.Store) http.Handler {
 		r.Group(func(r chi.Router) {
 			r.Use(api.JWTAuth(cfg))
 			r.Get("/auth/me", h.Me)
+
 			r.Get("/assets", h.ListAssets)
+			r.Get("/assets/initial-data", h.AssetsInitialData)
+			r.Get("/assets/export", h.ExportAssets)
+			r.Get("/assets/{id}", h.GetAsset)
+			r.Post("/assets", h.CreateAsset)
+			r.Patch("/assets/{id}", h.UpdateAsset)
+			r.Delete("/assets/{id}", h.DeleteAsset)
+
 			r.Get("/dashboard/summary", h.DashboardSummary)
+			r.Get("/dashboard/extended", h.DashboardExtended)
+			r.Get("/dashboard/personal", h.PersonalDashboard)
+
 			r.Get("/users", h.ListUsers)
 			r.Get("/organization/departments", h.ListDepartments)
+			r.Get("/organization/institutes", h.ListInstitutes)
+			r.Get("/organization/sections", h.ListSections)
+			r.Get("/organization/positions", h.ListPositions)
 			r.Get("/organization/buildings", h.ListBuildings)
 			r.Get("/organization/rooms", h.ListRooms)
+
 			r.Get("/assets/categories", h.ListAssetCategories)
+			r.Get("/assets/types", h.ListAssetTypes)
 			r.Get("/assets/classes", h.ListAssetClasses)
+
 			r.Get("/audit/ongoing", h.ListAuditOngoing)
 			r.Get("/audit/history", h.ListAuditHistory)
+			r.Get("/audit/jobs/{id}", h.GetAuditJob)
+
 			r.Get("/repairs", h.ListRepairs)
 			r.Get("/withdrawals", h.ListWithdrawals)
+			r.Patch("/withdrawals/{id}/status", h.PatchWithdrawalStatus)
 			r.Get("/sales", h.ListSales)
 			r.Get("/menus", h.OrgMenus)
+			r.Get("/menus/toggles", h.ListMenuToggles)
+			r.Patch("/menus/toggles", h.SetOrgMenu)
+
+			r.Route("/entities/{kind}", func(r chi.Router) {
+				r.Post("/", h.EntityCreate)
+				r.Patch("/{id}", h.EntityUpdate)
+				r.Delete("/{id}", h.EntityDelete)
+			})
+
+			r.Get("/super-admin/stats", h.SuperAdminStats)
 			r.Get("/super-admin/organizations", h.ListSuperAdminOrgs)
+			r.Post("/super-admin/organizations", h.CreateOrganization)
+			r.Delete("/super-admin/organizations/{id}", h.DeleteOrganization)
+			r.Get("/super-admin/org-access", h.ListOrgAccess)
+			r.Post("/super-admin/org-access", h.CreateOrgAccess)
+			r.Delete("/super-admin/org-access/{id}", h.DeleteOrgAccess)
 		})
 	})
 

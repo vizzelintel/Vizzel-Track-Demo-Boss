@@ -18,18 +18,29 @@ type User struct {
 const DemoRoleAdminOrg int64 = 2
 
 type Asset struct {
-	ID             int64     `json:"id"`
-	OrganizationID int64     `json:"organization_id"`
-	AssetNumber    string    `json:"asset_number"`
-	AssetName      string    `json:"asset_name"`
-	AssetValue     int64     `json:"asset_value"`
-	Status         string    `json:"status"`
-	CreatedAt      time.Time `json:"created_at"`
+	ID              int64     `json:"id"`
+	OrganizationID  int64     `json:"organization_id"`
+	AssetNumber     string    `json:"asset_number"`
+	AssetName       string    `json:"asset_name"`
+	RFIDNum         string    `json:"rfid_num,omitempty"`
+	CategoryID      int64     `json:"category_id,omitempty"`
+	ClassID         int64     `json:"class_id,omitempty"`
+	CategoryName    string    `json:"category_name,omitempty"`
+	ClassName       string    `json:"class_name,omitempty"`
+	TypeName        string    `json:"type_name,omitempty"`
+	BuildingName    string    `json:"building_name,omitempty"`
+	RoomName        string    `json:"room_name,omitempty"`
+	OwnerName       string    `json:"owner_name,omitempty"`
+	AssetStatusName string    `json:"asset_status_name,omitempty"`
+	AssetValue      int64     `json:"asset_value"`
+	Status          string    `json:"status"`
+	CreatedAt       time.Time `json:"created_at"`
 }
 
 type UserRecord struct {
 	ID             int64
 	OrganizationID int64
+	RoleID         int64
 	Email          string
 	PasswordHash   string
 	DisplayName    string

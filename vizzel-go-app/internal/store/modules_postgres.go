@@ -12,7 +12,7 @@ func (s *postgresStore) SeedModules(ctx context.Context, orgID int64) error {
 		return err
 	}
 	if n > 0 {
-		return nil
+		return s.seedExtendedPG(ctx, orgID)
 	}
 	_, _ = s.pool.Exec(ctx, `INSERT INTO departments (organization_id, name) VALUES ($1, $2), ($1, $3)`, orgID, "ฝ่ายบริหาร", "ฝ่าย IT")
 	_, _ = s.pool.Exec(ctx, `INSERT INTO buildings (organization_id, name) VALUES ($1, $2)`, orgID, "อาคาร A")
@@ -33,7 +33,7 @@ func (s *postgresStore) SeedModules(ctx context.Context, orgID int64) error {
 	for _, mid := range []int{1, 2, 3} {
 		_, _ = s.pool.Exec(ctx, `INSERT INTO organization_menus (organization_id, menu_id, enabled) VALUES ($1, $2, true) ON CONFLICT DO NOTHING`, orgID, mid)
 	}
-	return nil
+	return s.seedExtendedPG(ctx, orgID)
 }
 
 func (s *postgresStore) seedExtraUsers(ctx context.Context, orgID int64) error {
@@ -112,10 +112,6 @@ func (s *postgresStore) ListAssetCategories(ctx context.Context, orgID int64) ([
 	return s.listRowsPG(ctx, `SELECT id, name, NULL, NULL, NULL, created_at FROM asset_categories WHERE organization_id = $1`, orgID)
 }
 
-func (s *postgresStore) ListAssetClasses(ctx context.Context, orgID int64) ([]Row, error) {
-	return s.listRowsPG(ctx, `SELECT id, name, NULL, NULL, NULL, created_at FROM asset_classes WHERE organization_id = $1`, orgID)
-}
-
 func (s *postgresStore) ListAuditJobs(ctx context.Context, orgID int64, status string) ([]Row, error) {
 	if status != "" {
 		return s.listRowsPG(ctx, `SELECT id, title, NULL, status, progress::bigint, created_at FROM audit_jobs WHERE organization_id = $1 AND status = $2`, orgID, status)
@@ -125,10 +121,6 @@ func (s *postgresStore) ListAuditJobs(ctx context.Context, orgID int64, status s
 
 func (s *postgresStore) ListRepairs(ctx context.Context, orgID int64) ([]Row, error) {
 	return s.listRowsPG(ctx, `SELECT id, asset_number, note, status, NULL, created_at FROM repairs WHERE organization_id = $1`, orgID)
-}
-
-func (s *postgresStore) ListWithdrawals(ctx context.Context, orgID int64) ([]Row, error) {
-	return s.listRowsPG(ctx, `SELECT id, requester, item_name, status, NULL, created_at FROM withdrawals WHERE organization_id = $1`, orgID)
 }
 
 func (s *postgresStore) ListSales(ctx context.Context, orgID int64) ([]Row, error) {

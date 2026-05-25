@@ -4,11 +4,21 @@ import { useAuth } from "./context/AuthContext";
 import { AppLayout } from "./components/layout/AppLayout";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { PersonalDashboardPage } from "./pages/PersonalDashboardPage";
 import { AssetsListPage } from "./pages/AssetsListPage";
-import { ModuleListPage } from "./pages/ModuleListPage";
 import { AssetsStructurePage } from "./pages/AssetsStructurePage";
+import { OrganizationPage } from "./pages/OrganizationPage";
 import { OrganizationStructurePage } from "./pages/OrganizationStructurePage";
 import { ProfilePage } from "./pages/ProfilePage";
+import { EntityCrudPage } from "./components/data/EntityCrudPage";
+import { AuditOngoingPage } from "./pages/AuditOngoingPage";
+import { AuditJobPage } from "./pages/AuditJobPage";
+import { WithdrawalApprovalPage } from "./pages/WithdrawalApprovalPage";
+import { SuperAdminDashboardPage } from "./pages/SuperAdminDashboardPage";
+import { SuperAdminMenusPage } from "./pages/SuperAdminMenusPage";
+import { SuperAdminOrgAccessPage } from "./pages/SuperAdminOrgAccessPage";
+import { DocumentsPage } from "./pages/DocumentsPage";
+import { InboxPage } from "./pages/InboxPage";
 
 function Protected({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -23,20 +33,11 @@ function Protected({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-const stdCols = [
-  { key: "title" as const, label: "รายการ" },
-  { key: "subtitle" as const, label: "รายละเอียด" },
-  { key: "status" as const, label: "สถานะ" },
-];
-
 export default function App() {
   const { user } = useAuth();
   return (
     <Routes>
-      <Route
-        path="/login"
-        element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />}
-      />
+      <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
       <Route
         element={
           <Protected>
@@ -46,118 +47,142 @@ export default function App() {
       >
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/dashboard/personal" element={<DashboardPage />} />
+        <Route path="/dashboard/personal" element={<PersonalDashboardPage />} />
         <Route
           path="/dashboard/reports"
           element={
-            <ModuleListPage title="รายงานการรับประกัน" endpoint="/api/v1/sales" columns={stdCols} />
+            <EntityCrudPage
+              title="รายงานการรับประกัน"
+              listEndpoint="/api/v1/sales"
+              columns={[
+                { key: "title", label: "เลขครุภัณฑ์" },
+                { key: "subtitle", label: "ผู้ซื้อ" },
+                { key: "status", label: "สถานะ" },
+                { key: "value", label: "มูลค่า", render: (r) => (r.value ?? 0).toLocaleString() },
+              ]}
+            />
           }
         />
         <Route
           path="/dashboard/audit"
           element={
-            <ModuleListPage
+            <EntityCrudPage
               title="รายงานการตรวจนับ"
-              endpoint="/api/v1/audit/history"
-              columns={[
-                { key: "title", label: "งานตรวจนับ" },
-                { key: "status", label: "สถานะ" },
-                { key: "value", label: "%" },
-              ]}
-            />
-          }
-        />
-        <Route
-          path="/users"
-          element={
-            <ModuleListPage
-              title="จัดการสมาชิก"
-              endpoint="/api/v1/users"
-              columns={[
-                { key: "title", label: "ชื่อ" },
-                { key: "subtitle", label: "อีเมล" },
-              ]}
-            />
-          }
-        />
-        <Route
-          path="/organization"
-          element={
-            <ModuleListPage
-              title="ข้อมูลองค์กรและสถานที่"
-              endpoint="/api/v1/organization/buildings"
-              columns={[{ key: "title", label: "อาคาร" }]}
-            />
-          }
-        />
-        <Route path="/organization-structure" element={<OrganizationStructurePage />} />
-        <Route path="/assets/list" element={<AssetsListPage />} />
-        <Route path="/assets/structure" element={<AssetsStructurePage />} />
-        <Route path="/sales" element={<ModuleListPage title="ออกจำหน่าย" endpoint="/api/v1/sales" columns={stdCols} />} />
-        <Route
-          path="/audit/ongoing"
-          element={
-            <ModuleListPage
-              title="การตรวจนับ"
-              endpoint="/api/v1/audit/ongoing"
+              listEndpoint="/api/v1/audit/history"
               columns={[
                 { key: "title", label: "งาน" },
                 { key: "status", label: "สถานะ" },
-                { key: "value", label: "ความคืบหน้า %" },
+                { key: "value", label: "%", render: (r) => `${r.value ?? 0}%` },
               ]}
             />
           }
         />
+        <Route path="/users" element={<EntityCrudPage title="จัดการสมาชิก" listEndpoint="/api/v1/users" columns={[{ key: "title", label: "ชื่อ" }, { key: "subtitle", label: "อีเมล" }]} />} />
+        <Route path="/organization" element={<OrganizationPage />} />
+        <Route path="/organization-structure" element={<OrganizationStructurePage />} />
+        <Route path="/assets" element={<Navigate to="/assets/list" replace />} />
+        <Route path="/assets/list" element={<AssetsListPage />} />
+        <Route path="/assets/structure" element={<AssetsStructurePage />} />
+        <Route path="/assets/category" element={<Navigate to="/assets/structure" replace />} />
+        <Route path="/assets/type" element={<Navigate to="/assets/structure" replace />} />
+        <Route path="/assets/class" element={<Navigate to="/assets/structure" replace />} />
+        <Route
+          path="/sales"
+          element={
+            <EntityCrudPage
+              title="ออกจำหน่าย"
+              listEndpoint="/api/v1/sales"
+              entityKind="sales"
+              columns={[
+                { key: "title", label: "เลขครุภัณฑ์" },
+                { key: "subtitle", label: "ผู้ซื้อ" },
+                { key: "status", label: "สถานะ" },
+              ]}
+              createLabel="เพิ่มรายการจำหน่าย"
+            />
+          }
+        />
+        <Route path="/audit" element={<Navigate to="/audit/ongoing" replace />} />
+        <Route path="/audit/ongoing" element={<AuditOngoingPage />} />
+        <Route path="/audit/ongoing/:jobID" element={<AuditJobPage />} />
         <Route
           path="/audit/history"
           element={
-            <ModuleListPage
+            <EntityCrudPage
               title="ประวัติการตรวจนับ"
-              endpoint="/api/v1/audit/history"
+              listEndpoint="/api/v1/audit/history"
               columns={[
                 { key: "title", label: "งาน" },
                 { key: "status", label: "สถานะ" },
-                { key: "value", label: "%" },
+                { key: "value", label: "%", render: (r) => `${r.value ?? 0}%` },
               ]}
             />
           }
         />
-        <Route path="/repair" element={<ModuleListPage title="แจ้งซ่อมบำรุง" endpoint="/api/v1/repairs" columns={stdCols} />} />
-        <Route path="/withdrawal" element={<ModuleListPage title="เบิก/ยืม" endpoint="/api/v1/withdrawals" columns={stdCols} />} />
         <Route
-          path="/withdrawal-approval"
-          element={<ModuleListPage title="อนุมัติเบิก/ยืม" endpoint="/api/v1/withdrawals" columns={stdCols} />}
-        />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/settings" element={<ProfilePage />} />
-        <Route
-          path="/super-admin/dashboard"
+          path="/repair"
           element={
-            <ModuleListPage
-              title="Super Admin — องค์กรทั้งหมด"
-              endpoint="/api/v1/super-admin/organizations"
-              columns={[{ key: "title", label: "องค์กร" }]}
+            <EntityCrudPage
+              title="แจ้งซ่อมบำรุง"
+              listEndpoint="/api/v1/repairs"
+              entityKind="repairs"
+              columns={[
+                { key: "title", label: "เลขครุภัณฑ์" },
+                { key: "subtitle", label: "รายละเอียด" },
+                { key: "status", label: "สถานะ" },
+              ]}
+              createLabel="แจ้งซ่อม"
             />
           }
         />
+        <Route
+          path="/withdrawal"
+          element={
+            <EntityCrudPage
+              title="ทำรายการเบิก-ยืม"
+              listEndpoint="/api/v1/withdrawals"
+              entityKind="withdrawals"
+              columns={[
+                { key: "title", label: "ผู้ขอ" },
+                { key: "subtitle", label: "รายการ" },
+                { key: "status", label: "สถานะ" },
+              ]}
+              createLabel="สร้างคำขอ"
+            />
+          }
+        />
+        <Route
+          path="/withdrawal/dashboard"
+          element={
+            <EntityCrudPage
+              title="ภาพรวมเบิก-ยืม"
+              listEndpoint="/api/v1/withdrawals"
+              columns={[
+                { key: "title", label: "ผู้ขอ" },
+                { key: "subtitle", label: "รายการ" },
+                { key: "status", label: "สถานะ" },
+              ]}
+            />
+          }
+        />
+        <Route path="/withdrawal-approval" element={<WithdrawalApprovalPage />} />
+        <Route path="/documents" element={<DocumentsPage />} />
+        <Route path="/inbox" element={<InboxPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/settings" element={<ProfilePage />} />
+        <Route path="/super-admin/dashboard" element={<SuperAdminDashboardPage />} />
         <Route
           path="/super-admin/organizations"
           element={
-            <ModuleListPage
+            <EntityCrudPage
               title="จัดการองค์กร"
-              endpoint="/api/v1/super-admin/organizations"
+              listEndpoint="/api/v1/super-admin/organizations"
               columns={[{ key: "title", label: "องค์กร" }]}
             />
           }
         />
-        <Route
-          path="/super-admin/menus"
-          element={<ModuleListPage title="จัดการเมนู" endpoint="/api/v1/menus" columns={[{ key: "title", label: "เมนู" }]} />}
-        />
-        <Route
-          path="/super-admin/org-access"
-          element={<ModuleListPage title="สิทธิ์เข้าถึง Org (demo)" endpoint="/api/v1/users" columns={[{ key: "title", label: "ผู้ใช้" }]} />}
-        />
+        <Route path="/super-admin/menus" element={<SuperAdminMenusPage />} />
+        <Route path="/super-admin/org-access" element={<SuperAdminOrgAccessPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

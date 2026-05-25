@@ -67,7 +67,13 @@ func (s *sqliteStore) Migrate(ctx context.Context) error {
 			return fmt.Errorf("sqlite migrate: %w", err)
 		}
 	}
-	return s.migrateModules(ctx)
+	if err := s.migrateModules(ctx); err != nil {
+		return err
+	}
+	if err := s.migrateAssetsEnrich(ctx); err != nil {
+		return err
+	}
+	return s.migrateExtended(ctx)
 }
 
 func (s *sqliteStore) SeedDemo(ctx context.Context, email, password string, assetCount int) error {
@@ -77,7 +83,10 @@ func (s *sqliteStore) SeedDemo(ctx context.Context, email, password string, asse
 	}
 	if orgCount > 0 {
 		_ = s.SeedModules(ctx, 1)
-		return s.ensureAssetCount(ctx, 1, assetCount)
+		if err := s.ensureAssetCount(ctx, 1, assetCount); err != nil {
+			return err
+		}
+		return s.EnrichAssets(ctx, 1)
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -114,7 +123,10 @@ func (s *sqliteStore) SeedDemo(ctx context.Context, email, password string, asse
 	if err := tx.Commit(); err != nil {
 		return err
 	}
-	return s.seedExtraUsers(ctx, orgID)
+	if err := s.seedExtraUsers(ctx, orgID); err != nil {
+		return err
+	}
+	return s.EnrichAssets(ctx, orgID)
 }
 
 func (s *sqliteStore) seedExtraUsers(ctx context.Context, orgID int64) error {
@@ -170,10 +182,10 @@ func insertAssets(ctx context.Context, tx *sql.Tx, orgID int64, count int, ph st
 func (s *sqliteStore) UserByEmail(ctx context.Context, email string) (*UserRecord, error) {
 	email = strings.ToLower(strings.TrimSpace(email))
 	row := s.db.QueryRowContext(ctx,
-		`SELECT id, organization_id, email, password_hash, display_name FROM users WHERE email = ?`, email,
+		`SELECT id, organization_id, COALESCE(role_id,2), email, password_hash, display_name FROM users WHERE email = ?`, email,
 	)
 	var u UserRecord
-	if err := row.Scan(&u.ID, &u.OrganizationID, &u.Email, &u.PasswordHash, &u.DisplayName); err != nil {
+	if err := row.Scan(&u.ID, &u.OrganizationID, &u.RoleID, &u.Email, &u.PasswordHash, &u.DisplayName); err != nil {
 		return nil, err
 	}
 	return &u, nil

@@ -67,6 +67,7 @@ func (s *sqliteStore) SeedModules(ctx context.Context, orgID int64) error {
 	for _, mid := range []int{1, 2, 3} {
 		_, _ = s.db.ExecContext(ctx, `INSERT OR IGNORE INTO organization_menus (organization_id, menu_id, enabled) VALUES (?, ?, 1)`, orgID, mid)
 	}
+	_ = s.seedExtended(ctx, orgID)
 	return nil
 }
 
@@ -129,10 +130,6 @@ func (s *sqliteStore) ListAssetCategories(ctx context.Context, orgID int64) ([]R
 	return s.listRows(ctx, `SELECT id, name, '', '', 0, created_at FROM asset_categories WHERE organization_id = ?`, orgID)
 }
 
-func (s *sqliteStore) ListAssetClasses(ctx context.Context, orgID int64) ([]Row, error) {
-	return s.listRows(ctx, `SELECT id, name, '', '', 0, created_at FROM asset_classes WHERE organization_id = ?`, orgID)
-}
-
 func (s *sqliteStore) ListAuditJobs(ctx context.Context, orgID int64, status string) ([]Row, error) {
 	if status != "" {
 		return s.listRows(ctx, `SELECT id, title, '', status, progress, created_at FROM audit_jobs WHERE organization_id = ? AND status = ?`, orgID, status)
@@ -142,10 +139,6 @@ func (s *sqliteStore) ListAuditJobs(ctx context.Context, orgID int64, status str
 
 func (s *sqliteStore) ListRepairs(ctx context.Context, orgID int64) ([]Row, error) {
 	return s.listRows(ctx, `SELECT id, asset_number, note, status, 0, created_at FROM repairs WHERE organization_id = ?`, orgID)
-}
-
-func (s *sqliteStore) ListWithdrawals(ctx context.Context, orgID int64) ([]Row, error) {
-	return s.listRows(ctx, `SELECT id, requester, item_name, status, 0, created_at FROM withdrawals WHERE organization_id = ?`, orgID)
 }
 
 func (s *sqliteStore) ListSales(ctx context.Context, orgID int64) ([]Row, error) {

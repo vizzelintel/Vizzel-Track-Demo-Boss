@@ -74,9 +74,7 @@ func (h *Handler) ListAssetCategories(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListAssetClasses(w http.ResponseWriter, r *http.Request) {
-	h.listModule(w, r, func(orgID int64) ([]store.Row, error) {
-		return h.store.ListAssetClasses(r.Context(), orgID)
-	})
+	h.ListAssetClassesFiltered(w, r)
 }
 
 func (h *Handler) ListAuditOngoing(w http.ResponseWriter, r *http.Request) {
@@ -114,9 +112,7 @@ func (h *Handler) ListRepairs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListWithdrawals(w http.ResponseWriter, r *http.Request) {
-	h.listModule(w, r, func(orgID int64) ([]store.Row, error) {
-		return h.store.ListWithdrawals(r.Context(), orgID)
-	})
+	h.ListWithdrawalsFiltered(w, r)
 }
 
 func (h *Handler) ListSales(w http.ResponseWriter, r *http.Request) {

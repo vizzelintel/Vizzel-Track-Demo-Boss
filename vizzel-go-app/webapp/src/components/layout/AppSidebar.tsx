@@ -9,6 +9,9 @@ import {
   Command,
   ChevronDown,
   Shield,
+  FileText,
+  Inbox,
+  User,
 } from "lucide-react";
 import { useState, type ComponentType } from "react";
 import { cn } from "@/lib/utils";
@@ -25,21 +28,10 @@ export function AppSidebar() {
   const { user, logout } = useAuth();
   const roleID = user?.role_id ?? 2;
 
-  const nav: NavItem[] = [
-    {
-      title: "แดชบอร์ด",
-      icon: LayoutDashboard,
-      items: [
-        { title: "ภาพรวม", url: "/dashboard" },
-        { title: "รายงานส่วนตัว", url: "/dashboard/personal" },
-        { title: "รายงานการรับประกัน", url: "/dashboard/reports" },
-        { title: "รายงานการตรวจนับ", url: "/dashboard/audit" },
-      ],
-    },
-  ];
+  const nav: NavItem[] = [];
 
   if (roleID === 1) {
-    nav.unshift({
+    nav.push({
       title: "Super Admin",
       icon: Shield,
       items: [
@@ -50,6 +42,17 @@ export function AppSidebar() {
       ],
     });
   }
+
+  nav.push({
+    title: "แดชบอร์ด",
+    icon: LayoutDashboard,
+    items: [
+      { title: "ภาพรวม", url: "/dashboard" },
+      { title: "รายงานส่วนตัว", url: "/dashboard/personal" },
+      { title: "รายงานการรับประกัน", url: "/dashboard/reports" },
+      { title: "รายงานการตรวจนับ", url: "/dashboard/audit" },
+    ],
+  });
 
   if (roleID === 1 || roleID === 2) {
     nav.push({
@@ -82,7 +85,17 @@ export function AppSidebar() {
       ],
     },
     { title: "แจ้งซ่อมบำรุง", icon: Bolt, url: "/repair" },
-    { title: "เบิก/ยืม", icon: FileJson, url: "/withdrawal" },
+    {
+      title: "เบิก/ยืม",
+      icon: FileJson,
+      items: [
+        ...(roleID <= 2 ? [{ title: "ภาพรวม", url: "/withdrawal/dashboard" }] : []),
+        { title: "ทำรายการเบิก-ยืม", url: "/withdrawal" },
+        ...(roleID <= 2 ? [{ title: "อนุมัติการเบิก-ยืม", url: "/withdrawal-approval" }] : []),
+      ],
+    },
+    { title: "เอกสาร", icon: FileText, url: "/documents" },
+    { title: "กล่องข้อความ", icon: Inbox, url: "/inbox" },
   );
 
   return (
@@ -102,12 +115,14 @@ export function AppSidebar() {
         ))}
       </nav>
       <div className="border-t border-sidebar-border p-4">
-        <div className="mb-2 truncate text-sm font-medium">{user?.display_name || user?.email}</div>
-        <button
-          type="button"
-          onClick={logout}
-          className="text-sm text-primary hover:underline"
+        <NavLink
+          to="/profile"
+          className="mb-2 flex items-center gap-2 text-sm hover:text-primary"
         >
+          <User className="size-4" />
+          {user?.display_name || user?.email}
+        </NavLink>
+        <button type="button" onClick={logout} className="text-sm text-primary hover:underline">
           ออกจากระบบ
         </button>
       </div>

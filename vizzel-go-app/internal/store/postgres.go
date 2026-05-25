@@ -41,7 +41,7 @@ func (s *postgresStore) Ping(ctx context.Context) error {
 }
 
 func (s *postgresStore) Migrate(ctx context.Context) error {
-	files := []string{"001_schema.sql", "002_modules.sql"}
+	files := []string{"001_schema.sql", "002_modules.sql", "003_assets_enrich.sql", "004_extended.sql"}
 	prefixes := []string{"supabase/migrations/", "vizzel-go-app/supabase/migrations/"}
 	for _, name := range files {
 		var data []byte
@@ -96,7 +96,10 @@ func (s *postgresStore) SeedDemo(ctx context.Context, email, password string, as
 	if orgCount > 0 {
 		_ = s.SeedModules(ctx, 1)
 		_ = s.seedExtraUsers(ctx, 1)
-		return s.ensureAssetCount(ctx, 1, assetCount)
+		if err := s.ensureAssetCount(ctx, 1, assetCount); err != nil {
+			return err
+		}
+		return s.EnrichAssets(ctx, 1)
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -130,7 +133,10 @@ func (s *postgresStore) SeedDemo(ctx context.Context, email, password string, as
 	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
-	return s.seedExtraUsers(ctx, orgID)
+	if err := s.seedExtraUsers(ctx, orgID); err != nil {
+		return err
+	}
+	return s.EnrichAssets(ctx, orgID)
 }
 
 func (s *postgresStore) ensureAssetCount(ctx context.Context, orgID int64, want int) error {
@@ -176,10 +182,10 @@ func insertAssetsPostgres(ctx context.Context, tx pgx.Tx, orgID int64, count int
 
 func (s *postgresStore) UserByEmail(ctx context.Context, email string) (*UserRecord, error) {
 	row := s.pool.QueryRow(ctx,
-		`SELECT id, organization_id, email, password_hash, display_name FROM users WHERE email = $1`, strings.ToLower(strings.TrimSpace(email)),
+		`SELECT id, organization_id, COALESCE(role_id,2), email, password_hash, display_name FROM users WHERE email = $1`, strings.ToLower(strings.TrimSpace(email)),
 	)
 	var u UserRecord
-	if err := row.Scan(&u.ID, &u.OrganizationID, &u.Email, &u.PasswordHash, &u.DisplayName); err != nil {
+	if err := row.Scan(&u.ID, &u.OrganizationID, &u.RoleID, &u.Email, &u.PasswordHash, &u.DisplayName); err != nil {
 		return nil, err
 	}
 	return &u, nil
