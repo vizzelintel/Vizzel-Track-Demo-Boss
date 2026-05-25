@@ -10,9 +10,12 @@ type Organization struct {
 type User struct {
 	ID             int64  `json:"id"`
 	OrganizationID int64  `json:"organization_id"`
+	RoleID         int64  `json:"role_id"`
 	Email          string `json:"email"`
 	DisplayName    string `json:"display_name"`
 }
+
+const DemoRoleAdminOrg int64 = 2
 
 type Asset struct {
 	ID             int64     `json:"id"`

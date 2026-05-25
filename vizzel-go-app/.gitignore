@@ -3,3 +3,5 @@ vizzel_demo.db-*
 *.exe
 .env
 .env.*
+webapp/node_modules
+internal/spa/dist

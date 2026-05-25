@@ -12,11 +12,12 @@ import (
 type Claims struct {
 	UserID         int64  `json:"user_id"`
 	OrganizationID int64  `json:"organization_id"`
+	RoleID         int64  `json:"role_id"`
 	Email          string `json:"email"`
 	jwt.RegisteredClaims
 }
 
-func IssueToken(secret string, userID, orgID int64, email string, ttl time.Duration) (string, error) {
+func IssueToken(secret string, userID, orgID, roleID int64, email string, ttl time.Duration) (string, error) {
 	if secret == "" {
 		secret = "vizzel-demo-dev-secret-change-me"
 	}
@@ -24,6 +25,7 @@ func IssueToken(secret string, userID, orgID int64, email string, ttl time.Durat
 	claims := Claims{
 		UserID:         userID,
 		OrganizationID: orgID,
+		RoleID:         roleID,
 		Email:          email,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   strconv.FormatInt(userID, 10),

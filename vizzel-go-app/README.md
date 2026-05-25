@@ -1,66 +1,63 @@
-# Vizzel Track — Go Demo
+# Vizzel Track — Go Demo (แบบ A: Go API + React)
 
-แอปเดียว (Go + chi) ให้ API และ UI ฝังใน binary — อ้างอิง domain จาก Vizzel Track production (NestJS + Next.js) แบบย่อสำหรับ public demo
+แอปเดียว: **Go (chi)** ให้ REST API + เสิร์ฟ **React (Vite)** ฝังใน binary — เป้าหมาย UI/UX ใกล้เคียง Vizzel Track production (Next.js) ทีละ phase
 
-## รัน local (SQLite)
+## รัน local
 
 ```powershell
 cd vizzel-go-app
-go mod tidy
-go run ./cmd/server
+.\scripts\build.ps1
+.\server.exe
 ```
 
-เปิด http://localhost:8080
+หรือ dev แยก UI:
 
-| รายการ | ค่า |
-|--------|-----|
+```powershell
+# Terminal 1 — API
+go run ./cmd/server
+
+# Terminal 2 — UI hot reload (proxy /api → :8080)
+cd webapp
+npm install
+npm run dev
+```
+
+เปิด http://localhost:8080 (หรือ http://localhost:5173 ตอน dev)
+
 | Login | `admin@demo.local` / `demo1234` |
-| DB | `vizzel_demo.db` (สร้างอัตโนมัติ + seed ~200 assets) |
+
+## Phase 1 (ปัจจุบัน)
+
+- หน้า Login สไตล์ production
+- Layout + Sidebar เมนูหลัก (แดชบอร์ด, org, assets, audit, …)
+- **ใช้งานได้:** Dashboard, รายการสินทรัพย์ (`/assets/list`)
+- หน้าอื่น: placeholder (Phase 2+)
 
 ## API
 
-| Method | Path | หมายเหตุ |
-|--------|------|----------|
-| GET | `/api/v1/health` | สถานะ + driver DB |
-| POST | `/api/v1/auth/login` | `{ "email", "password" }` → JWT |
-| GET | `/api/v1/assets` | Bearer token, `?limit=20&cursor=` |
+| Method | Path |
+|--------|------|
+| GET | `/api/v1/health` |
+| POST | `/api/v1/auth/login` |
+| GET | `/api/v1/auth/me` |
+| GET | `/api/v1/assets` |
 
-## Supabase (Postgres)
+## Supabase / Fly
 
-ตั้งค่า environment แล้วรัน server (หรือ deploy Fly):
-
-```text
-SUPABASE_DB_URL=postgresql://...@...pooler.supabase.com:6543/postgres?sslmode=require
-JWT_SECRET=<random-secret>
-```
-
-รัน migration บน Supabase SQL editor หรือ CLI:
-
-```text
-supabase/migrations/001_schema.sql
-```
-
-Server จะ seed org/user/assets เมื่อตารางว่าง (เหมือน SQLite)
-
-## Fly.io
+ดู `.env.example` สำหรับ `SUPABASE_DB_URL` + `JWT_SECRET`
 
 ```powershell
-cd vizzel-go-app
-fly auth login
-fly apps create vizzel-track-demo-boss   # ครั้งแรก
-fly secrets set JWT_SECRET=... SUPABASE_DB_URL=...
-fly deploy
+fly deploy -a vizzel-track-demo-boss
 ```
+
+Live: https://vizzel-track-demo-boss.fly.dev/
 
 ## โครงสร้าง
 
 ```text
-cmd/server/          entrypoint
-internal/api/        handlers + JWT middleware
-internal/auth/       JWT helpers
-internal/config/     env
-internal/server/     chi router
-internal/store/      sqlite | postgres
-webassets/web/       static UI
-supabase/migrations/ Postgres schema
+cmd/server/           Go entry
+internal/api/         handlers
+internal/spa/dist/    React build output (embed)
+webapp/               React + Vite source
+supabase/migrations/
 ```

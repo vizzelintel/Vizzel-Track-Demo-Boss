@@ -66,7 +66,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := auth.IssueToken(h.cfg.JWTSecret, u.ID, u.OrganizationID, u.Email, 24*time.Hour)
+	token, err := auth.IssueToken(h.cfg.JWTSecret, u.ID, u.OrganizationID, store.DemoRoleAdminOrg, u.Email, 24*time.Hour)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "token issue failed")
 		return
@@ -79,8 +79,36 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		"user": store.User{
 			ID:             u.ID,
 			OrganizationID: u.OrganizationID,
+			RoleID:         store.DemoRoleAdminOrg,
 			Email:          u.Email,
 			DisplayName:    u.DisplayName,
+		},
+	})
+}
+
+func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
+	claims, ok := claimsFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	displayName := claims.Email
+	if u, err := h.store.UserByEmail(r.Context(), claims.Email); err == nil {
+		displayName = u.DisplayName
+	}
+	roleID := claims.RoleID
+	if roleID == 0 {
+		roleID = store.DemoRoleAdminOrg
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"id":              claims.UserID,
+		"email":           claims.Email,
+		"display_name":    displayName,
+		"organization_id": claims.OrganizationID,
+		"role_id":         roleID,
+		"organization": map[string]any{
+			"id":   claims.OrganizationID,
+			"name": "Demo Organization",
 		},
 	})
 }

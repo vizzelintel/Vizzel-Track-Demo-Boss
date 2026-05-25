@@ -12,7 +12,7 @@ import (
 	"github.com/vizzelintel/vizzel-track-demo-boss/vizzel-go-app/internal/api"
 	"github.com/vizzelintel/vizzel-track-demo-boss/vizzel-go-app/internal/config"
 	"github.com/vizzelintel/vizzel-track-demo-boss/vizzel-go-app/internal/store"
-	"github.com/vizzelintel/vizzel-track-demo-boss/vizzel-go-app/webassets"
+	"github.com/vizzelintel/vizzel-track-demo-boss/vizzel-go-app/internal/spa"
 )
 
 func New(cfg config.Config, st store.Store) http.Handler {
@@ -25,11 +25,12 @@ func New(cfg config.Config, st store.Store) http.Handler {
 		r.Post("/auth/login", h.Login)
 		r.Group(func(r chi.Router) {
 			r.Use(api.JWTAuth(cfg))
+			r.Get("/auth/me", h.Me)
 			r.Get("/assets", h.ListAssets)
 		})
 	})
 
-	web, _ := fs.Sub(webassets.FS, "web")
+	web, _ := fs.Sub(spa.FS, "dist")
 	r.Handle("/*", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			http.NotFound(w, r)
@@ -39,6 +40,10 @@ func New(cfg config.Config, st store.Store) http.Handler {
 		if name == "" || name == "index.html" {
 			name = "index.html"
 		} else if _, err := web.Open(name); err != nil {
+			if strings.Contains(filepath.Base(name), ".") {
+				http.NotFound(w, r)
+				return
+			}
 			name = "index.html"
 		}
 		data, err := fs.ReadFile(web, name)

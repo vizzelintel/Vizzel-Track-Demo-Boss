@@ -1,9 +1,17 @@
+FROM node:22-alpine AS web
+WORKDIR /src
+COPY webapp/package.json ./webapp/
+RUN cd webapp && npm install
+COPY webapp ./webapp
+RUN cd webapp && npm run build
+
 FROM golang:1.22-alpine AS build
 WORKDIR /src
 RUN apk add --no-cache git
 COPY go.mod ./
 RUN go mod download
 COPY . .
+COPY --from=web /src/internal/spa/dist ./internal/spa/dist
 RUN go mod tidy
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /out/server ./cmd/server
 
