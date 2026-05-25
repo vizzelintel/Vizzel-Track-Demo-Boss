@@ -29,14 +29,27 @@ export function DashboardPage() {
   const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
   const [trend, setTrend] = useState<Array<{ date: string; count: number }>>([]);
   const [valueHistory, setValueHistory] = useState<
-    Array<{ date: string; value: number }> | null
-  >(null);
+    Array<{ date: string; value: number }>
+  >([]);
   const [statusChart, setStatusChart] = useState<
     Array<{ status: string; value: number; label: string }> | null
   >(null);
-  const [depreciation, setDepreciation] = useState<unknown>(null);
-  const [newAssets, setNewAssets] = useState<unknown>(null);
-  const [location, setLocation] = useState<unknown>(null);
+  const [depreciation, setDepreciation] = useState<
+    Array<{ year: string; depreciation: number; accumulated: number }>
+  >([]);
+  const [newAssets, setNewAssets] = useState<
+    Array<{
+      id: number;
+      assetNumber: string;
+      assetName: string;
+      category: string;
+      cost: number;
+      receivedDate: string;
+    }>
+  >([]);
+  const [location, setLocation] = useState<
+    Array<{ location: string; count: number; value: number }>
+  >([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -91,13 +104,13 @@ export function DashboardPage() {
 
           <DepreciationSection
             organizationID={orgId}
-            data={depreciation as never}
+            data={depreciation}
             initialRangeId="3y"
           />
 
-          <NewAssetsSection data={newAssets as never} />
+          <NewAssetsSection data={newAssets} />
 
-          <AssetLocationSection data={location as never} />
+          <AssetLocationSection data={location} />
         </div>
       </div>
     </div>

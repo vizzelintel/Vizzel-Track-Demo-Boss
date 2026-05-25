@@ -108,11 +108,30 @@ func (h *Handler) CompatDashboardLocationWrapped(w http.ResponseWriter, r *http.
 	}
 	ext, _ := h.store.DashboardExtended(r.Context(), orgID)
 	items := make([]map[string]any, 0, len(ext.LocationBreakdown))
+	res, _ := h.store.ListAssetsPaged(r.Context(), orgID, 1, 500, store.AssetFilter{})
+	valueByLoc := map[string]int64{}
+	if res != nil {
+		for _, a := range res.Data {
+			loc := a.BuildingName
+			if loc == "" {
+				loc = "ไม่ระบุ"
+			}
+			valueByLoc[loc] += a.AssetValue
+		}
+	}
 	for _, loc := range ext.LocationBreakdown {
+		name := loc.Name
+		if name == "" {
+			name = "ไม่ระบุ"
+		}
+		val := valueByLoc[name]
+		if val == 0 {
+			val = int64(loc.Count) * 10000
+		}
 		items = append(items, map[string]any{
-			"buildingName": loc.Name,
-			"count":        loc.Count,
-			"rooms":        []any{},
+			"location": name,
+			"count":    loc.Count,
+			"value":    val,
 		})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": items})
@@ -141,10 +160,27 @@ func (h *Handler) CompatDashboardDepreciation(w http.ResponseWriter, r *http.Req
 		return
 	}
 	ext, _ := h.store.DashboardExtended(r.Context(), orgID)
+	if ext == nil {
+		ext = &store.DashboardExtended{}
+	}
+	y1 := time.Now().Year() - 1
+	y2 := time.Now().Year()
+	dep1 := ext.AccumulatedDepreciation / 3
+	dep2 := ext.AccumulatedDepreciation - dep1
 	writeJSON(w, http.StatusOK, map[string]any{
 		"data": []map[string]any{
-			{"year": time.Now().Year(), "value": ext.AccumulatedDepreciation},
-			{"year": time.Now().Year() - 1, "value": ext.AccumulatedDepreciation / 2},
+			{
+				"year":           strconv.Itoa(y1),
+				"granularity":    "year",
+				"depreciation":   dep1,
+				"accumulated":    dep1,
+			},
+			{
+				"year":           strconv.Itoa(y2),
+				"granularity":    "year",
+				"depreciation":   dep2,
+				"accumulated":    ext.AccumulatedDepreciation,
+			},
 		},
 	})
 }
@@ -154,14 +190,28 @@ func (h *Handler) CompatDashboardNewAssets(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
-	ext, _ := h.store.DashboardExtended(r.Context(), orgID)
-	writeJSON(w, http.StatusOK, map[string]any{
-		"data": map[string]any{
-			"year":  time.Now().Year(),
-			"total": ext.NewAssetsThisYear,
-			"items": []map[string]any{},
-		},
-	})
+	res, _ := h.store.ListAssetsPaged(r.Context(), orgID, 1, 200, store.AssetFilter{})
+	items := make([]map[string]any, 0)
+	if res != nil {
+		limit := res.Total
+		if limit > 50 {
+			limit = 50
+		}
+		for i, a := range res.Data {
+			if i >= limit {
+				break
+			}
+			items = append(items, map[string]any{
+				"id":           a.ID,
+				"assetNumber":  a.AssetNumber,
+				"assetName":    a.AssetName,
+				"category":     a.CategoryName,
+				"cost":         a.AssetValue,
+				"receivedDate": a.CreatedAt.Format("2006-01-02"),
+			})
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": items})
 }
 
 func (h *Handler) CompatPersonalSummary(w http.ResponseWriter, r *http.Request) {

@@ -1,4 +1,19 @@
 import { apiRequest } from "./api";
+import {
+  normalizeDepreciationPayload,
+  normalizeLocationPayload,
+  normalizeNewAssetsPayload,
+  normalizeStatusPayload,
+  normalizeSummaryPayload,
+  normalizeTrendPayload,
+  type DepreciationRow,
+  type LocationRow,
+  type NewAssetRow,
+  type StatusRow,
+  type TrendRow,
+  type ValueHistoryRow,
+  normalizeValueHistoryPayload,
+} from "./dashboard-normalize";
 
 export type AssetValueHistoryRange =
   | "7d"
@@ -21,73 +36,64 @@ export type AssetValueHistoryGranularity =
 export type DepreciationRange = "1m" | "3m" | "1y" | "3y" | "5y" | "10y" | "all";
 
 export async function getDashboardSummary(orgId: number) {
-  const res = await apiRequest<{ data?: Record<string, unknown> }>(
-    `/dashboard/summary/${orgId}`,
-  );
-  return res.data ?? null;
+  const res = await apiRequest<unknown>(`/dashboard/summary/${orgId}`);
+  return normalizeSummaryPayload(res);
 }
 
 export async function getAssetTrend(
   orgId: number,
   range?: AssetValueHistoryRange,
   granularity?: AssetValueHistoryGranularity,
-) {
+): Promise<TrendRow[]> {
   const params = new URLSearchParams();
   if (range) params.append("range", range);
   if (granularity) params.append("granularity", granularity);
   const qs = params.toString() ? `?${params.toString()}` : "";
-  const res = await apiRequest<{ data?: Array<{ date: string; count: number }> }>(
-    `/dashboard/trend/${orgId}${qs}`,
-  );
-  return res.data ?? [];
+  const res = await apiRequest<unknown>(`/dashboard/trend/${orgId}${qs}`);
+  return normalizeTrendPayload(res);
 }
 
 export async function getAssetValueHistory(
   orgId: number,
   range?: AssetValueHistoryRange,
   granularity?: AssetValueHistoryGranularity,
-) {
+): Promise<ValueHistoryRow[]> {
   const params = new URLSearchParams();
   if (range) params.append("range", range);
   if (granularity) params.append("granularity", granularity);
   const qs = params.toString() ? `?${params.toString()}` : "";
-  const res = await apiRequest<{ data?: Array<{ date: string; value: number }> }>(
-    `/dashboard/value-history/${orgId}${qs}`,
-  );
-  return res.data ?? [];
+  const res = await apiRequest<unknown>(`/dashboard/value-history/${orgId}${qs}`);
+  return normalizeValueHistoryPayload(res);
 }
 
-export async function getAssetStatusChart(orgId: number) {
-  const res = await apiRequest<{
-    data?: Array<{ status: string; value: number; label: string }>;
-  }>(`/dashboard/status/${orgId}`);
-  return res.data ?? null;
+export async function getAssetStatusChart(orgId: number): Promise<StatusRow[] | null> {
+  const res = await apiRequest<unknown>(`/dashboard/status/${orgId}`);
+  return normalizeStatusPayload(res);
 }
 
 export async function getDepreciationHistoryDashboard(
   orgId: number,
   range?: DepreciationRange,
-) {
+): Promise<DepreciationRow[]> {
   const params = new URLSearchParams();
   if (range) params.append("range", range);
   const qs = params.toString() ? `?${params.toString()}` : "";
-  const res = await apiRequest<{ data?: unknown }>(
-    `/dashboard/depreciation/${orgId}${qs}`,
-  );
-  return res.data ?? null;
+  const res = await apiRequest<unknown>(`/dashboard/depreciation/${orgId}${qs}`);
+  return normalizeDepreciationPayload(res);
 }
 
-export async function getNewAssetsDashboard(orgId: number, year?: number) {
+export async function getNewAssetsDashboard(
+  orgId: number,
+  year?: number,
+): Promise<NewAssetRow[]> {
   const qs = year ? `?year=${year}` : "";
-  const res = await apiRequest<{ data?: unknown }>(
-    `/dashboard/new-assets/${orgId}${qs}`,
-  );
-  return res.data ?? null;
+  const res = await apiRequest<unknown>(`/dashboard/new-assets/${orgId}${qs}`);
+  return normalizeNewAssetsPayload(res);
 }
 
-export async function getAssetLocationDashboard(orgId: number) {
-  const res = await apiRequest<{ data?: unknown }>(`/dashboard/location/${orgId}`);
-  return res.data ?? null;
+export async function getAssetLocationDashboard(orgId: number): Promise<LocationRow[]> {
+  const res = await apiRequest<unknown>(`/dashboard/location/${orgId}`);
+  return normalizeLocationPayload(res);
 }
 
 export async function getPersonalSummary() {

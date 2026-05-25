@@ -148,7 +148,7 @@ export function AssetLocationSection({ data }: AssetLocationSectionProps) {
     setMounted(true);
   }, []);
 
-  const chartData = data ?? assetLocationData;
+  const chartData = Array.isArray(data) && data.length > 0 ? data : assetLocationData;
   const totalCount = chartData.reduce((sum, item) => sum + item.count, 0);
   const totalValue = chartData.reduce((sum, item) => sum + item.value, 0);
 

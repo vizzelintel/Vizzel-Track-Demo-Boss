@@ -333,12 +333,8 @@ export function AppSidebar({
             <SidebarMenuItem>
               <SidebarMenuButton size="lg" asChild className="pr-8" data-testid={TEST_IDS.SIDEBAR.LINK_DASHBOARD}>
                 <Link href="/dashboard">
-                  <div className="flex aspect-square size-8 items-center justify-center rounded-lg overflow-hidden bg-white">
-                    <img
-                      src="/vizzel_logo.png"
-                      alt="VizzelTrack Logo"
-                      className="w-full h-full object-cover"
-                    />
+                  <div className="bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
+                    <Command className="size-4" />
                   </div>
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-medium">VizzelTrack</span>

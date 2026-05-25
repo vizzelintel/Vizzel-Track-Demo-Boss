@@ -15,7 +15,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -43,7 +42,7 @@ export function NewAssetsSection({ data }: NewAssetsSectionProps) {
   const [currentPage, setCurrentPage] = React.useState(1);
   const pageSize = 5;
 
-  const currentYearData = data ?? [];
+  const currentYearData = Array.isArray(data) ? data : [];
   const totalCount = currentYearData.length;
   const totalPages = Math.ceil(totalCount / pageSize);
 
