@@ -63,9 +63,9 @@ export function OrganizationStructurePage() {
       <Separator />
 
       <Tabs value={activeTab} onValueChange={onTabChange} className="gap-4">
-        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 sm:w-auto">
+        <TabsList className="grid h-auto w-full grid-cols-4 gap-1">
           {tabs.map((t) => (
-            <TabsTrigger key={t.id} value={t.id} className="flex-none px-4">
+            <TabsTrigger key={t.id} value={t.id} className="w-full px-4">
               {t.label}
             </TabsTrigger>
           ))}
