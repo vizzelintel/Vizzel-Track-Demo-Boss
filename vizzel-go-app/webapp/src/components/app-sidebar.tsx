@@ -155,6 +155,7 @@ export function AppSidebar({
       { title: "จัดการโครงสร้างองค์กร", url: "/organization-structure" },
       { title: "ตั้งค่าการแจ้งเตือน", url: "/settings/notifications" },
       { title: "ผู้อนุมัติตามขั้น", url: "/settings/approval-delegates" },
+      { title: "บทบาท & สิทธิ์", url: "/settings/roles" },
     ],
   };
 

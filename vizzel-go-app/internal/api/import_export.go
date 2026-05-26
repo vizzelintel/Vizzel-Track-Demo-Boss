@@ -236,6 +236,9 @@ func (h *Handler) AssetImport(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
+// ConvertElaasImport accepts an ELAAS xlsx upload and returns the standard
+// 14-column CSV text that the existing AssetImport pipeline understands. The
+// real xlsx parsing lives in elaas_xlsx.go (parseElaasXLSX).
 func (h *Handler) ConvertElaasImport(w http.ResponseWriter, r *http.Request) {
 	file, _, err := r.FormFile("file")
 	if err != nil {
@@ -243,12 +246,57 @@ func (h *Handler) ConvertElaasImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer file.Close()
-	data, err := io.ReadAll(file)
+	report, err := h.parseElaasXLSX(file)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "read failed")
+		writeError(w, http.StatusBadRequest, "elaas parse failed: "+err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"csv": string(data)})
+	var b strings.Builder
+	b.WriteString("เลขครุภัณฑ์,รหัส Elaas,ชื่อ,RFID,หมวด,ชนิด,อาคาร,ห้อง,เจ้าของ,มูลค่า,สถานะ,คิดค่าเสื่อม,ชื่อชิ้นย่อย,ลำดับชิ้น\n")
+	cw := csv.NewWriter(&b)
+	for _, row := range report.Rows {
+		assetNum := row.AssetNumber
+		if assetNum == "" {
+			assetNum = row.ElaasCode
+		}
+		status := row.Status
+		if status == "" {
+			status = "ใช้งาน"
+		}
+		depr := "ไม่ใช่"
+		if row.AccumDepr > 0 {
+			depr = "ใช่"
+		}
+		_ = cw.Write([]string{
+			assetNum,
+			row.ElaasCode,
+			row.AssetName,
+			"", // RFID
+			row.Category,
+			row.Class,
+			"", // อาคาร
+			"", // ห้อง
+			row.OwnerName,
+			formatElaasMoney(row.PurchaseValue),
+			status,
+			depr,
+			"", // ชื่อชิ้นย่อย
+			"", // ลำดับชิ้น
+		})
+	}
+	cw.Flush()
+	writeJSON(w, http.StatusOK, map[string]any{
+		"csv":           b.String(),
+		"rows_detected": len(report.Rows),
+		"total_value":   report.TotalValue,
+	})
+}
+
+func formatElaasMoney(v float64) string {
+	if v == 0 {
+		return ""
+	}
+	return strconv.FormatFloat(v, 'f', 2, 64)
 }
 
 func pick(row []string, i int) string {

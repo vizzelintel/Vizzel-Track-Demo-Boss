@@ -55,6 +55,9 @@ func (s *postgresStore) Migrate(ctx context.Context) error {
 		"020_transfer_target_location.sql",
 		"021_org_admin_verify.sql",
 		"022_approval_step_assignees.sql",
+		"023_disposal_lot.sql",
+		"024_rbac.sql",
+		"025_elaas_extras.sql",
 	}
 	prefixes := []string{"supabase/migrations/", "vizzel-go-app/supabase/migrations/"}
 	for _, name := range files {

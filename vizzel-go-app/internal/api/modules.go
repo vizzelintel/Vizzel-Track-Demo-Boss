@@ -12,6 +12,16 @@ func orgIDFromRequest(r *http.Request) (int64, bool) {
 	if !ok {
 		return 0, false
 	}
+	// Super admin (role_id=1) may scope any request to a different
+	// organization via the ?organizationID= query string. Other roles are
+	// pinned to their claim org.
+	if claims.RoleID == 1 {
+		if q := r.URL.Query().Get("organizationID"); q != "" {
+			if id, err := strconv.ParseInt(q, 10, 64); err == nil && id > 0 {
+				return id, true
+			}
+		}
+	}
 	return claims.OrganizationID, true
 }
 

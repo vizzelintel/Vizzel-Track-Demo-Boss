@@ -129,6 +129,16 @@ func New(cfg config.Config, st store.Store) http.Handler {
 			r.Get("/super-admin/org-access", h.ListOrgAccess)
 			r.Post("/super-admin/org-access", h.CreateOrgAccess)
 			r.Delete("/super-admin/org-access/{id}", h.DeleteOrgAccess)
+
+			r.Get("/permissions/me", h.MyPermissions)
+			r.Get("/permissions/resources", h.ListResources)
+			r.Get("/roles", h.ListRoles)
+			r.Get("/roles/{id}", h.GetRole)
+			r.Post("/roles", h.CreateRole)
+			r.Patch("/roles/{id}", h.UpdateRole)
+			r.Delete("/roles/{id}", h.DeleteRole)
+
+			r.Post("/assets/import/elaas", h.ImportElaasXLSX)
 		})
 	})
 

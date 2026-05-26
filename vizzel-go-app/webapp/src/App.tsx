@@ -86,6 +86,11 @@ const SuperAdminOrgAccessPage = lazy(() =>
     default: m.SuperAdminOrgAccessPage,
   })),
 );
+const SuperAdminRolesPage = lazy(() =>
+  import("./pages/SuperAdminRolesPage").then((m) => ({
+    default: m.SuperAdminRolesPage,
+  })),
+);
 const DocumentsPage = lazy(() =>
   import("./pages/DocumentsPage").then((m) => ({ default: m.DocumentsPage })),
 );
@@ -116,6 +121,9 @@ const ApprovalDelegatesPage = lazy(() =>
   import("./pages/settings/ApprovalDelegatesPage").then((m) => ({
     default: m.ApprovalDelegatesPage,
   })),
+);
+const RolesPage = lazy(() =>
+  import("./pages/settings/RolesPage").then((m) => ({ default: m.RolesPage })),
 );
 const ApprovalQueuePage = lazy(() =>
   import("./pages/ApprovalQueuePage").then((m) => ({ default: m.ApprovalQueuePage })),
@@ -583,6 +591,14 @@ export default function App() {
           }
         />
         <Route
+          path="/settings/roles"
+          element={
+            <Lazy>
+              <RolesPage />
+            </Lazy>
+          }
+        />
+        <Route
           path="/profile"
           element={
             <Lazy>
@@ -629,6 +645,14 @@ export default function App() {
           element={
             <Lazy>
               <SuperAdminOrgAccessPage />
+            </Lazy>
+          }
+        />
+        <Route
+          path="/super-admin/roles"
+          element={
+            <Lazy>
+              <SuperAdminRolesPage />
             </Lazy>
           }
         />

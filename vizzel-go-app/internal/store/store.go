@@ -126,6 +126,14 @@ type Store interface {
 	CreateChannel(ctx context.Context, c NotificationChannel) (int64, error)
 	UpdateChannel(ctx context.Context, id, orgID int64, c NotificationChannel) error
 	DeleteChannel(ctx context.Context, id, orgID int64) error
+
+	ListResources(ctx context.Context) ([]Resource, error)
+	ListRoles(ctx context.Context) ([]Role, error)
+	GetRole(ctx context.Context, id int64) (*Role, error)
+	CreateRole(ctx context.Context, in RoleInput) (*Role, error)
+	UpdateRole(ctx context.Context, id int64, in RoleInput) (*Role, error)
+	DeleteRole(ctx context.Context, id int64) error
+	HasPermission(ctx context.Context, roleID int64, resource, action string) (bool, error)
 }
 
 func Open(ctx context.Context, dbURL, sqlitePath string) (Store, error) {
