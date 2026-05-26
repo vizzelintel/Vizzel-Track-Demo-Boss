@@ -56,7 +56,9 @@ export function NavUser({
   const { logout } = useLogout();
   const router = useRouter();
   const { accessibleOrgs, viewOrgId, setViewOrgId } = useViewOrg();
-  const showOrgSwitcher = accessibleOrgs.length >= 2;
+  // Org "view as" switcher is reserved for Super Admin (role 1).
+  // Other multi-org users (e.g. org-access entries) keep their primary org.
+  const showOrgSwitcher = Boolean(isSuperAdmin) && accessibleOrgs.length >= 2;
 
   const goTo = (path: string) => {
     router.push(path);

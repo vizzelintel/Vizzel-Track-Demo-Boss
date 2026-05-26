@@ -27,6 +27,8 @@ export function ViewOrgProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const loginOrgId = user?.organization_id ?? user?.organizationID ?? null;
   const loginOrgName = user?.organization?.name ?? "องค์กร";
+  const roleID = user?.role_id ?? user?.roleID ?? null;
+  const isSuperAdmin = roleID === 1;
 
   const [accessibleOrgs, setAccessibleOrgs] = useState<OrgOption[]>([]);
   const [viewOrgId, setViewOrgIdState] = useState<number | null>(null);
@@ -36,6 +38,15 @@ export function ViewOrgProvider({ children }: { children: ReactNode }) {
     if (!loginOrgId) {
       setAccessibleOrgs([]);
       setViewOrgIdState(null);
+      setLoading(false);
+      return;
+    }
+    // Only Super Admin can view-as another org. Regular users are pinned to
+    // their primary org and never see the switcher.
+    if (!isSuperAdmin) {
+      setAccessibleOrgs([{ id: loginOrgId, title: loginOrgName }]);
+      setViewOrgIdState(loginOrgId);
+      localStorage.removeItem(STORAGE_KEY);
       setLoading(false);
       return;
     }
@@ -56,7 +67,7 @@ export function ViewOrgProvider({ children }: { children: ReactNode }) {
         setViewOrgIdState(loginOrgId);
       })
       .finally(() => setLoading(false));
-  }, [loginOrgId, loginOrgName]);
+  }, [loginOrgId, loginOrgName, isSuperAdmin]);
 
   const setViewOrgId = useCallback((id: number) => {
     setViewOrgIdState(id);

@@ -54,7 +54,8 @@ export function RolesPage() {
     try {
       const [r, res] = await Promise.all([listRoles(), listResources()]);
       setRoles(r ?? []);
-      setResources(res ?? []);
+      // Hide the "super_admin" pseudo-resource — role 1 has implicit full access.
+      setResources((res ?? []).filter((row) => row.code !== "super_admin"));
       if (r && r.length && !selectedID) {
         setSelectedID(r[0].id);
       }

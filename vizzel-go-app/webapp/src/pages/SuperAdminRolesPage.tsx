@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,6 +12,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   createRole,
   deleteRole,
@@ -62,6 +73,9 @@ export function SuperAdminRolesPage() {
   const [description, setDescription] = useState("");
   const [draft, setDraft] = useState<DraftPermission>({});
   const [open, setOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -69,6 +83,7 @@ export function SuperAdminRolesPage() {
       const [r, role] = await Promise.all([listResources(), listRoles()]);
       setResources(r);
       setRoles(role);
+      setSelectedIds([]);
     } catch (err) {
       const message = err instanceof Error ? err.message : "โหลดข้อมูลสิทธิ์ไม่สำเร็จ";
       toast.error(message);
@@ -138,30 +153,69 @@ export function SuperAdminRolesPage() {
     }
   };
 
-  const remove = async (role: Role) => {
-    if (role.id === SUPER_ADMIN_ROLE_ID || role.is_locked) {
-      toast.error("Role ถูกล็อก ลบไม่ได้");
-      return;
+  const deletableIds = useMemo(
+    () =>
+      roles
+        .filter(
+          (r) =>
+            r.id !== SUPER_ADMIN_ROLE_ID && !r.is_locked && !r.is_system,
+        )
+        .map((r) => r.id),
+    [roles],
+  );
+
+  const selectableSet = useMemo(() => new Set(deletableIds), [deletableIds]);
+  const visibleSelected = selectedIds.filter((id) => selectableSet.has(id));
+
+  const toggleSelectAll = () => {
+    if (visibleSelected.length === deletableIds.length && deletableIds.length > 0) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(deletableIds);
     }
-    if (role.is_system) {
-      toast.error("Role ระบบ (built-in) ลบไม่ได้");
-      return;
+  };
+
+  const toggleRow = (id: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id],
+    );
+  };
+
+  const bulkDelete = async () => {
+    if (visibleSelected.length === 0) return;
+    setBulkDeleting(true);
+    let success = 0;
+    let failed = 0;
+    for (const id of visibleSelected) {
+      try {
+        await deleteRole(id);
+        success += 1;
+      } catch {
+        failed += 1;
+      }
     }
-    if (!window.confirm(`ลบ role "${role.name}" ?`)) return;
-    try {
-      await deleteRole(role.id);
-      toast.success("ลบสำเร็จ");
-      await load();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "ลบไม่สำเร็จ";
-      toast.error(message);
+    if (success > 0 && failed === 0) {
+      toast.success(`ลบสำเร็จ ${success} รายการ`);
+    } else if (success > 0 && failed > 0) {
+      toast.warning(`ลบสำเร็จ ${success} รายการ และล้มเหลว ${failed} รายการ`);
+    } else {
+      toast.error("ลบรายการที่เลือกไม่สำเร็จ");
     }
+    setBulkDeleting(false);
+    setBulkOpen(false);
+    setSelectedIds([]);
+    await load();
   };
 
   const dialogTitle = editing ? `แก้ไข role: ${editing.name}` : "เพิ่ม role ใหม่";
 
   const orderedResources = useMemo(
-    () => [...resources].sort((a, b) => a.sort_order - b.sort_order),
+    () =>
+      [...resources]
+        // Super Admin (role 1) has implicit full access — no per-resource toggle
+        // needed for the "super_admin" pseudo-resource.
+        .filter((r) => r.code !== "super_admin")
+        .sort((a, b) => a.sort_order - b.sort_order),
     [resources],
   );
 
@@ -173,26 +227,56 @@ export function SuperAdminRolesPage() {
             <ShieldCheck className="size-5 text-primary" />
             จัดการสิทธิ์ตาม Role
           </CardTitle>
-          <Button onClick={startNew} data-testid="role-create-btn">
-            <Plus className="size-4" /> เพิ่ม Role
-          </Button>
+          <div className="flex items-center gap-2">
+            {visibleSelected.length > 0 && (
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={() => setBulkOpen(true)}
+                data-testid="role-bulk-delete"
+              >
+                <Trash2 className="mr-2 size-4" />
+                ลบที่เลือก ({visibleSelected.length})
+              </Button>
+            )}
+            <Button onClick={startNew} data-testid="role-create-btn">
+              <Plus className="size-4" /> เพิ่ม Role
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto rounded-lg border border-border">
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-left">
                 <tr>
+                  <th className="w-10 p-3">
+                    <Checkbox
+                      checked={
+                        deletableIds.length > 0 &&
+                        visibleSelected.length === deletableIds.length
+                          ? true
+                          : visibleSelected.length > 0
+                            ? "indeterminate"
+                            : false
+                      }
+                      onCheckedChange={toggleSelectAll}
+                      disabled={deletableIds.length === 0}
+                      aria-label="เลือกทั้งหมด"
+                      data-testid="role-select-all"
+                    />
+                  </th>
                   <th className="p-3 font-medium">Role</th>
                   <th className="p-3 font-medium">คำอธิบาย</th>
                   <th className="p-3 font-medium">สถานะ</th>
                   <th className="p-3 font-medium">สิทธิ์ที่กำหนด</th>
-                  <th className="p-3 font-medium">จัดการ</th>
+                  <th className="w-16 p-3" />
                 </tr>
               </thead>
               <tbody>
                 {roles.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="text-muted-foreground p-8 text-center">
+                    <td colSpan={6} className="text-muted-foreground p-8 text-center">
                       {loading ? "กำลังโหลด..." : "ยังไม่มี role"}
                     </td>
                   </tr>
@@ -202,12 +286,22 @@ export function SuperAdminRolesPage() {
                   const permCount = (role.permissions ?? []).filter(
                     (p) => p.can_view || p.can_edit || p.can_delete,
                   ).length;
+                  const canSelect = selectableSet.has(role.id);
                   return (
                     <tr
                       key={role.id}
                       className="border-t border-border hover:bg-muted/30"
                       data-testid={`role-row-${role.id}`}
                     >
+                      <td className="p-3">
+                        <Checkbox
+                          checked={selectedIds.includes(role.id)}
+                          onCheckedChange={() => toggleRow(role.id)}
+                          disabled={!canSelect}
+                          aria-label="เลือก role"
+                          data-testid={`role-select-${role.id}`}
+                        />
+                      </td>
                       <td className="p-3 font-medium">
                         <div className="flex items-center gap-2">
                           {locked && <Lock className="size-3 text-muted-foreground" />}
@@ -236,27 +330,17 @@ export function SuperAdminRolesPage() {
                         {locked ? "ทุกอย่าง" : `${permCount}/${resources.length}`}
                       </td>
                       <td className="p-3">
-                        <div className="flex gap-1">
-                          <Button
-                            variant="outline"
-                            className="h-7 px-2 text-xs"
-                            disabled={locked}
-                            onClick={() => startEdit(role)}
-                            data-testid={`role-edit-${role.id}`}
-                          >
-                            <Pencil className="size-3" />
-                            แก้ไข
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            className="h-7 px-2 text-xs text-destructive"
-                            disabled={locked || role.is_system}
-                            onClick={() => remove(role)}
-                            data-testid={`role-delete-${role.id}`}
-                          >
-                            <Trash2 className="size-3" /> ลบ
-                          </Button>
-                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8"
+                          disabled={locked}
+                          onClick={() => startEdit(role)}
+                          aria-label="แก้ไข"
+                          data-testid={`role-edit-${role.id}`}
+                        >
+                          <Pencil className="size-4" />
+                        </Button>
                       </td>
                     </tr>
                   );
@@ -266,6 +350,32 @@ export function SuperAdminRolesPage() {
           </div>
         </CardContent>
       </Card>
+
+      <AlertDialog open={bulkOpen} onOpenChange={setBulkOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>ยืนยันการลบ</AlertDialogTitle>
+            <AlertDialogDescription>
+              ลบ role จำนวน {visibleSelected.length} รายการ?
+              การดำเนินการนี้ไม่สามารถกู้คืนได้
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkDeleting}>ยกเลิก</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                bulkDelete();
+              }}
+              disabled={bulkDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+              data-testid="role-bulk-delete-confirm"
+            >
+              {bulkDeleting ? "กำลังลบ..." : "ยืนยันลบ"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
