@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test:normalize": "node scripts/test-normalize.mjs"
+    "test:normalize": "node scripts/test-normalize.mjs",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install --with-deps chromium"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -37,6 +39,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
+    "exceljs": "^4.4.0",
     "lucide-react": "^0.468.0",
     "react": "^19.0.0",
     "react-day-picker": "^9.11.1",
@@ -46,12 +49,12 @@
     "recharts": "^2.15.4",
     "sonner": "^2.0.7",
     "swr": "^2.3.3",
-    "exceljs": "^4.4.0",
     "tailwind-merge": "^2.6.0",
     "vaul": "^1.1.2",
     "zod": "^4.1.12"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/vite": "^4.0.0",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",

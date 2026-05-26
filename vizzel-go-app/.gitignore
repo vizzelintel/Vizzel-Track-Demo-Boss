@@ -1,8 +1,16 @@
 vizzel_demo.db
 vizzel_demo.db-*
+e2e-test.db
+e2e/.state/
 *.exe
 *.exe~
 .env
 .env.*
 webapp/node_modules
 internal/spa/dist
+webapp/playwright-report/
+webapp/test-results/
+elaas-dryrun.json
+elaas-imported.json
+elaas-sample.xlsx
+*.exe.json
