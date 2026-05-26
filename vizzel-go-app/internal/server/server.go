@@ -144,6 +144,9 @@ func New(cfg config.Config, st store.Store) http.Handler {
 			return
 		}
 		name := strings.TrimPrefix(r.URL.Path, "/")
+		if name == "favicon.ico" {
+			name = "favicon.svg"
+		}
 		if name == "" || name == "index.html" {
 			name = "index.html"
 		} else if _, err := web.Open(name); err != nil {
