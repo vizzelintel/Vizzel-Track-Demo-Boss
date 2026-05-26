@@ -42,6 +42,10 @@ type Store interface {
 	ListRepairs(ctx context.Context, orgID int64) ([]Row, error)
 	ListWithdrawals(ctx context.Context, orgID int64, status string) ([]Row, error)
 	ListSales(ctx context.Context, orgID int64) ([]Row, error)
+	ListDisposalLots(ctx context.Context, orgID int64) ([]DisposalLot, error)
+	GetDisposalLot(ctx context.Context, orgID, lotID int64) (*DisposalLot, error)
+	CreateDisposalLot(ctx context.Context, orgID int64, in DisposalLotInput) (int64, error)
+	SubmitDisposalForApproval(ctx context.Context, orgID, lotID, userID int64, stepAssignees map[string]int64) error
 	ListOrganizations(ctx context.Context) ([]Row, error)
 	OrgMenus(ctx context.Context, orgID int64) ([]int, error)
 	ListMenuToggles(ctx context.Context, orgID int64) ([]MenuToggle, error)

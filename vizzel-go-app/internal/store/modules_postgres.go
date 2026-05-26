@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -116,13 +117,17 @@ func (s *postgresStore) ListSales(ctx context.Context, orgID int64) ([]Row, erro
 			if lot.AssetCount > 0 {
 				sub = fmt.Sprintf("%d รายการ · %s", lot.AssetCount, lot.Buyer)
 			}
+			createdAt, _ := time.Parse(time.RFC3339, lot.CreatedAt)
+			if createdAt.IsZero() {
+				createdAt, _ = time.Parse("2006-01-02 15:04:05", lot.CreatedAt)
+			}
 			rows = append(rows, Row{
 				ID:        lot.ID,
 				Title:     lot.Lot,
 				Subtitle:  sub,
 				Status:    lot.Status,
-				Value:     int(lot.Amount),
-				CreatedAt: lot.CreatedAt,
+				Value:     int64(lot.Amount),
+				CreatedAt: createdAt,
 			})
 		}
 		return rows, nil
