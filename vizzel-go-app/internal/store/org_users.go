@@ -2,6 +2,8 @@ package store
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -108,4 +110,67 @@ func (s *postgresStore) listOrgUsersFallback(ctx context.Context, orgID int64) (
 		})
 	}
 	return out, nil
+}
+
+var (
+	ErrOrgUserRequestNotFound = errors.New("request not found")
+	ErrOrgUserRequestProcessed = errors.New("request already processed")
+	ErrOrgUserVerifyForbidden  = errors.New("you cannot verify this organization")
+)
+
+func (s *postgresStore) VerifyOrgUserRequest(ctx context.Context, orgID, relationID, approverUserID, approverRoleID int64, approve bool) error {
+	if relationID <= 0 || approverUserID <= 0 {
+		return fmt.Errorf("invalid request")
+	}
+	if approverRoleID != 1 && approverRoleID != 2 {
+		return ErrOrgUserVerifyForbidden
+	}
+
+	var reqVerify int
+	var reqOrgID int64
+	err := s.pool.QueryRow(ctx,
+		`SELECT verify, organization_id FROM tab_user_organization_role
+		 WHERE id = $1 AND deleted_at IS NULL`,
+		relationID,
+	).Scan(&reqVerify, &reqOrgID)
+	if err != nil {
+		return ErrOrgUserRequestNotFound
+	}
+	if reqOrgID != orgID {
+		return ErrOrgUserVerifyForbidden
+	}
+	if reqVerify != 1 {
+		return ErrOrgUserRequestProcessed
+	}
+
+	var canApprove bool
+	_ = s.pool.QueryRow(ctx,
+		`SELECT EXISTS (
+			SELECT 1 FROM tab_user_organization_role
+			WHERE user_id = $1 AND organization_id = $2
+			  AND role_id IN (1, 2) AND verify = 2 AND status = TRUE
+			  AND deleted_at IS NULL
+		)`,
+		approverUserID, orgID,
+	).Scan(&canApprove)
+	if !canApprove {
+		return ErrOrgUserVerifyForbidden
+	}
+
+	if approve {
+		_, err = s.pool.Exec(ctx,
+			`UPDATE tab_user_organization_role
+			 SET verify = 2, status = FALSE, updated_at = NOW()
+			 WHERE id = $1 AND organization_id = $2 AND verify = 1 AND deleted_at IS NULL`,
+			relationID, orgID,
+		)
+	} else {
+		_, err = s.pool.Exec(ctx,
+			`UPDATE tab_user_organization_role
+			 SET verify = 0, updated_at = NOW()
+			 WHERE id = $1 AND organization_id = $2 AND verify = 1 AND deleted_at IS NULL`,
+			relationID, orgID,
+		)
+	}
+	return err
 }

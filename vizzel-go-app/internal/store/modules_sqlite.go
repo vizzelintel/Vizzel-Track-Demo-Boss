@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 	"time"
 )
@@ -113,6 +114,10 @@ func (s *sqliteStore) listRows(ctx context.Context, q string, args ...any) ([]Ro
 
 func (s *sqliteStore) ListUsers(ctx context.Context, orgID int64) ([]Row, error) {
 	return s.listRows(ctx, `SELECT id, COALESCE(display_name, email), email, '', 0, created_at FROM users WHERE organization_id = ?`, orgID)
+}
+
+func (s *sqliteStore) VerifyOrgUserRequest(ctx context.Context, orgID, relationID, approverUserID, approverRoleID int64, approve bool) error {
+	return fmt.Errorf("join request verify requires PostgreSQL")
 }
 
 func (s *sqliteStore) ListOrgUsers(ctx context.Context, orgID int64) ([]OrgUserRow, error) {

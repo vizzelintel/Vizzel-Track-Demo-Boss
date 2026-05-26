@@ -686,6 +686,30 @@ func (h *Handler) OrgAssignRole(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) OrgVerify(w http.ResponseWriter, r *http.Request) {
+	claims, ok := claimsFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	var body struct {
+		RequestID int64 `json:"requestID"`
+		Verify    bool  `json:"verify"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.RequestID <= 0 {
+		writeError(w, http.StatusBadRequest, "invalid request")
+		return
+	}
+	if err := h.store.VerifyOrgUserRequest(
+		r.Context(),
+		claims.OrganizationID,
+		body.RequestID,
+		claims.UserID,
+		claims.RoleID,
+		body.Verify,
+	); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 

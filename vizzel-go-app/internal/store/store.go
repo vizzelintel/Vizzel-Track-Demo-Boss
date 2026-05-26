@@ -27,6 +27,7 @@ type Store interface {
 	SuperAdminStats(ctx context.Context) (*SuperAdminStats, error)
 	ListUsers(ctx context.Context, orgID int64) ([]Row, error)
 	ListOrgUsers(ctx context.Context, orgID int64) ([]OrgUserRow, error)
+	VerifyOrgUserRequest(ctx context.Context, orgID, relationID, approverUserID, approverRoleID int64, approve bool) error
 	ListDepartments(ctx context.Context, orgID int64) ([]Row, error)
 	ListInstitutes(ctx context.Context, orgID int64) ([]Row, error)
 	ListSections(ctx context.Context, orgID int64) ([]Row, error)

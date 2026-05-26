@@ -441,13 +441,27 @@ export default function UserManagementDashboard({
 
   async function handleVerify(item: OrgUser, verify: boolean) {
     if (!organizationID) return;
+    setPendingData((prev: OrganizationUsersResponse | null) => {
+      if (!prev) return prev;
+      const nextTotal = Math.max(0, prev.total - 1);
+      return {
+        ...prev,
+        data: prev.data.filter(
+          (u: OrgUser) => u.relationID !== item.relationID,
+        ),
+        total: nextTotal,
+        totalPages: Math.max(1, Math.ceil(nextTotal / pageSize)),
+      };
+    });
     try {
       await verifyUserRequest(item.relationID, verify);
       toast.success(verify ? "อนุมัติคำขอสำเร็จ" : "ปฏิเสธคำขอสำเร็จ");
       refresh();
       refreshLimitsWithRetry();
+      if (verify) setActiveTab("active");
     } catch (err: unknown) {
       toast.error((err as Error).message || "เกิดข้อผิดพลาด");
+      refresh();
     }
   }
 
