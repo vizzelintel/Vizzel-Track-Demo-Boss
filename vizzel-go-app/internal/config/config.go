@@ -18,7 +18,9 @@ type Config struct {
 func Load() Config {
 	seedCount := 200
 	if v := os.Getenv("SEED_ASSET_COUNT"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+		// Accept 0 so production deploys can disable demo asset seeding entirely
+		// (e.g. after migration 026_clear_demo_data wipes the demo dataset).
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
 			seedCount = n
 		}
 	}

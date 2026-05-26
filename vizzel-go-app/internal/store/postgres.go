@@ -58,6 +58,7 @@ func (s *postgresStore) Migrate(ctx context.Context) error {
 		"023_disposal_lot.sql",
 		"024_rbac.sql",
 		"025_elaas_extras.sql",
+		"026_clear_demo_data.sql",
 	}
 	prefixes := []string{"supabase/migrations/", "vizzel-go-app/supabase/migrations/"}
 	for _, name := range files {
@@ -84,14 +85,37 @@ func (s *postgresStore) Migrate(ctx context.Context) error {
 func splitSQL(sql string) []string {
 	var out []string
 	var b strings.Builder
+	// Track $tag$ ... $tag$ dollar-quote blocks (also bare $$ … $$) so that
+	// semicolons inside DO/PL-pgSQL bodies don't split the statement early.
+	dollarOpen := ""
 	for _, line := range strings.Split(sql, "\n") {
 		trim := strings.TrimSpace(line)
-		if strings.HasPrefix(trim, "--") {
+		if dollarOpen == "" && strings.HasPrefix(trim, "--") {
 			continue
 		}
 		b.WriteString(line)
 		b.WriteString("\n")
-		if strings.HasSuffix(trim, ";") {
+		// Find all $tag$ markers on this line and toggle dollarOpen.
+		for i := 0; i < len(line); {
+			if line[i] == '$' {
+				end := i + 1
+				for end < len(line) && line[end] != '$' {
+					end++
+				}
+				if end < len(line) && line[end] == '$' {
+					tag := line[i : end+1]
+					if dollarOpen == "" {
+						dollarOpen = tag
+					} else if dollarOpen == tag {
+						dollarOpen = ""
+					}
+					i = end + 1
+					continue
+				}
+			}
+			i++
+		}
+		if dollarOpen == "" && strings.HasSuffix(trim, ";") {
 			stmt := strings.TrimSpace(b.String())
 			if stmt != "" {
 				out = append(out, stmt)
