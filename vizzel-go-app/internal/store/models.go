@@ -21,6 +21,7 @@ type Asset struct {
 	ID              int64     `json:"id"`
 	OrganizationID  int64     `json:"organization_id"`
 	AssetNumber     string    `json:"asset_number"`
+	ElaasCode       string    `json:"elaas_code,omitempty"`
 	AssetName       string    `json:"asset_name"`
 	RFIDNum         string    `json:"rfid_num,omitempty"`
 	CategoryID      int64     `json:"category_id,omitempty"`
@@ -36,6 +37,7 @@ type Asset struct {
 	AssetStatusID   int64     `json:"asset_status_id,omitempty"`
 	AssetStatusName string    `json:"asset_status_name,omitempty"`
 	IsCheck         bool      `json:"is_check"`
+	IsDepreciation  bool      `json:"is_depreciation"`
 	ReceivedDate    time.Time `json:"received_date"`
 	ExpiryDate      *time.Time `json:"expiry_date,omitempty"`
 	GetByID         int       `json:"get_by_id,omitempty"`

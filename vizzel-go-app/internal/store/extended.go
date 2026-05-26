@@ -2,6 +2,7 @@ package store
 
 type AssetInput struct {
 	AssetNumber     string `json:"asset_number"`
+	ElaasCode       string `json:"elaas_code"`
 	AssetName       string `json:"asset_name"`
 	RFIDNum         string `json:"rfid_num"`
 	AssetDetails    string `json:"asset_details"`
@@ -16,6 +17,7 @@ type AssetInput struct {
 	AssetStatusName string `json:"asset_status_name"`
 	AssetStatusID   int64  `json:"asset_status_id"`
 	IsCheck         bool   `json:"is_check"`
+	IsDepreciation  bool   `json:"is_depreciation"`
 	ReceivedDate    string `json:"received_date"`
 	ExpiryDate      string `json:"expiry_date"`
 	GetByID         int64  `json:"get_by_id"`

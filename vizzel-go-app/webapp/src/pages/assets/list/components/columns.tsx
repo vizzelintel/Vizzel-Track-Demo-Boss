@@ -112,14 +112,25 @@ export const columns: ColumnDef<AssetData>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="เลขครุภัณฑ์" />
     ),
-    cell: ({ row }) => (
-      <div
-        className="font-medium truncate max-w-[150px]"
-        title={row.getValue("assetNumber")}
-      >
-        {row.getValue("assetNumber")}
-      </div>
-    ),
+    cell: ({ row }) => {
+      const assetNumber = row.getValue("assetNumber") as string;
+      const elaas = (row.original as AssetData).elaasCode;
+      return (
+        <div
+          className="flex max-w-[180px] flex-col"
+          title={
+            elaas ? `${assetNumber}\nElaas: ${elaas}` : String(assetNumber ?? "")
+          }
+        >
+          <span className="font-medium truncate">{assetNumber}</span>
+          {elaas && (
+            <span className="text-muted-foreground truncate text-[11px] leading-tight">
+              {elaas}
+            </span>
+          )}
+        </div>
+      );
+    },
     meta: {
       className: "hidden md:table-cell",
     },

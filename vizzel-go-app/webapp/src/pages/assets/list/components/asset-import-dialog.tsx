@@ -46,6 +46,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { TEST_IDS } from "@/components/test-ids";
+import { parseAssetCodes } from "@/lib/asset-code-format";
 
 // --- Validation Schema ---
 // Update based on Asset CSV requirement
@@ -255,13 +256,41 @@ export function AssetImportDialog({
           rows[0][0] = rows[0][0].slice(1);
         }
 
-        setHeaders(rows[0]);
+        let headerRow = rows[0];
         // Filter empty rows
-        const cleanData = rows
+        let cleanData = rows
           .slice(1)
           .filter((r) => r.some((c) => c.trim() !== ""));
+
+        // R1: detect combined "elaas (XXX YY ZZZZ)" cells in column 0 and split
+        // them into separate elaas_code + asset_number columns. The split is
+        // only applied when the spreadsheet does not already have an explicit
+        // "รหัส Elaas" header.
+        const headerHasElaas = headerRow.some((h) =>
+          /elaas|อีลาส/i.test(String(h ?? "")),
+        );
+        const anyCombined = cleanData.some((row) => {
+          const cell = String(row?.[0] ?? "").trim();
+          return /^\s*[\d-]+\s*\([\d\s-]+\)\s*$/.test(cell);
+        });
+        if (!headerHasElaas && anyCombined) {
+          headerRow = [headerRow[0] || "เลขครุภัณฑ์", "รหัส Elaas", ...headerRow.slice(1)];
+          cleanData = cleanData.map((row) => {
+            const first = String(row?.[0] ?? "");
+            const { elaasCode, assetNumber } = parseAssetCodes(first);
+            const next = [...row];
+            // If we parsed something out, put the asset number back in column 0
+            // and the elaas into the new column 1. Otherwise just keep the raw
+            // value as the asset number with an empty elaas column.
+            next[0] = assetNumber || first;
+            next.splice(1, 0, elaasCode);
+            return next;
+          });
+        }
+
+        setHeaders(headerRow);
         setData(cleanData);
-        validateAll(cleanData, rows[0]);
+        validateAll(cleanData, headerRow);
       }
     } catch (error) {
       console.error("Parse error", error);

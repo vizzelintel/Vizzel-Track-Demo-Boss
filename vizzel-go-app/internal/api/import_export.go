@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"io"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -12,10 +13,50 @@ import (
 )
 
 func (h *Handler) AssetTemplate(w http.ResponseWriter, r *http.Request) {
-	csv := "เลขครุภัณฑ์,ชื่อ,RFID,หมวด,ชนิด,อาคาร,ห้อง,เจ้าของ,มูลค่า,สถานะ\nDEMO-NEW01,ตัวอย่าง,RFID-00001,ครุภัณฑ์คอมพิวเตอร์,Laptop,อาคาร A,ห้อง 101,สมชาย,50000,ใช้งาน\n"
+	csv := "เลขครุภัณฑ์,รหัส Elaas,ชื่อ,RFID,หมวด,ชนิด,อาคาร,ห้อง,เจ้าของ,มูลค่า,สถานะ,คิดค่าเสื่อม\n" +
+		"001-43-0001,101-630926-00001,ตัวอย่างครุภัณฑ์,RFID-00001,ครุภัณฑ์คอมพิวเตอร์,Laptop,อาคาร A,ห้อง 101,สมชาย,50000,ใช้งาน,ใช่\n"
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	w.Header().Set("Content-Disposition", "attachment; filename=asset-template.csv")
 	_, _ = w.Write([]byte(csv))
+}
+
+// elaasCombinedPattern matches "<elaas-code> (XXX YY ZZZZ)" with optional dashes
+// inside the inner asset-number group. The inner group is rewritten with dashes
+// in parseElaasCombined below.
+var elaasCombinedPattern = regexp.MustCompile(`^\s*([\d\-]+)\s*\(([\d\s\-]+)\)\s*$`)
+
+// parseElaasCombined splits a combined "<elaas> (XXX YY ZZZZ)" cell into the
+// separate elaas_code and asset_number values. If the pattern does not match,
+// the original cell is returned as the asset number with an empty elaas code.
+func parseElaasCombined(cell string) (elaas, number string) {
+	cell = strings.TrimSpace(cell)
+	m := elaasCombinedPattern.FindStringSubmatch(cell)
+	if m == nil {
+		return "", cell
+	}
+	elaas = strings.TrimSpace(m[1])
+	inner := strings.TrimSpace(m[2])
+	// Normalise the inner XXX YY ZZZZ form to XXX-YY-ZZZZ.
+	parts := strings.FieldsFunc(inner, func(r rune) bool {
+		return r == ' ' || r == '-' || r == '\t'
+	})
+	number = strings.Join(parts, "-")
+	return elaas, number
+}
+
+// parseImportBool parses common true/false markers used in the CSV import
+// (true/false, 1/0, yes/no, ใช่/ไม่ใช่). Empty values default to defaultVal.
+func parseImportBool(raw string, defaultVal bool) bool {
+	v := strings.TrimSpace(strings.ToLower(raw))
+	switch v {
+	case "":
+		return defaultVal
+	case "true", "1", "yes", "y", "t", "ใช่":
+		return true
+	case "false", "0", "no", "n", "f", "ไม่ใช่", "ไม่":
+		return false
+	}
+	return defaultVal
 }
 
 func (h *Handler) AssetImport(w http.ResponseWriter, r *http.Request) {
@@ -32,7 +73,16 @@ func (h *Handler) AssetImport(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 	reader := csv.NewReader(file)
 	reader.FieldsPerRecord = -1
-	_, _ = reader.Read() // header
+	header, _ := reader.Read()
+	// Detect whether the new template (with explicit รหัส Elaas column at index 1)
+	// is being used. Old template: index 1 is the asset name.
+	hasElaasColumn := false
+	if len(header) > 1 {
+		h := strings.ToLower(strings.TrimSpace(header[1]))
+		if strings.Contains(h, "elaas") || strings.Contains(header[1], "Elaas") || strings.Contains(header[1], "อีลาส") {
+			hasElaasColumn = true
+		}
+	}
 	imported, failed := 0, 0
 	for {
 		row, err := reader.Read()
@@ -43,18 +93,36 @@ func (h *Handler) AssetImport(w http.ResponseWriter, r *http.Request) {
 			failed++
 			continue
 		}
-		val, _ := strconv.ParseInt(strings.TrimSpace(row[8]), 10, 64)
+		// First column may contain a combined "elaas (XXX YY ZZZZ)" cell; split it.
+		elaas, assetNum := parseElaasCombined(strings.TrimSpace(row[0]))
+		var (
+			nameIdx, rfidIdx, catIdx, classIdx, bldIdx, roomIdx, ownerIdx, valIdx, statusIdx, depIdx int
+		)
+		if hasElaasColumn {
+			// Explicit elaas column overrides whatever we parsed out of column 0
+			// (the combined cell is still split so the user gets sensible behaviour
+			// either way).
+			if v := strings.TrimSpace(pick(row, 1)); v != "" {
+				elaas = v
+			}
+			nameIdx, rfidIdx, catIdx, classIdx, bldIdx, roomIdx, ownerIdx, valIdx, statusIdx, depIdx = 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
+		} else {
+			nameIdx, rfidIdx, catIdx, classIdx, bldIdx, roomIdx, ownerIdx, valIdx, statusIdx, depIdx = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+		}
+		val, _ := strconv.ParseInt(strings.TrimSpace(pick(row, valIdx)), 10, 64)
 		in := store.AssetInput{
-			AssetNumber: strings.TrimSpace(row[0]),
-			AssetName:   strings.TrimSpace(row[1]),
-			RFIDNum:     pick(row, 2),
-			CategoryName: pick(row, 3),
-			ClassName:   pick(row, 4),
-			BuildingName: pick(row, 5),
-			RoomName:    pick(row, 6),
-			OwnerName:   pick(row, 7),
-			AssetValue:  val,
-			AssetStatusName: pickDefault(row, 9, "ใช้งาน"),
+			AssetNumber:     assetNum,
+			ElaasCode:       elaas,
+			AssetName:       pick(row, nameIdx),
+			RFIDNum:         pick(row, rfidIdx),
+			CategoryName:    pick(row, catIdx),
+			ClassName:       pick(row, classIdx),
+			BuildingName:    pick(row, bldIdx),
+			RoomName:        pick(row, roomIdx),
+			OwnerName:       pick(row, ownerIdx),
+			AssetValue:      val,
+			AssetStatusName: pickDefault(row, statusIdx, "ใช้งาน"),
+			IsDepreciation:  parseImportBool(pick(row, depIdx), true),
 		}
 		if _, err := h.store.CreateAsset(r.Context(), claims.OrganizationID, in); err != nil {
 			failed++

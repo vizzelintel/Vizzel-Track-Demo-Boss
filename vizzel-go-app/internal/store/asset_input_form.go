@@ -35,6 +35,23 @@ func ParseAssetInputForm(r *http.Request) (AssetInput, error) {
 		}
 		return ""
 	}
+	// hasField reports whether a field was present at all (even with empty value),
+	// so we can distinguish "not sent" from "explicitly false".
+	hasField := func(keys ...string) bool {
+		for _, k := range keys {
+			if r.Form != nil {
+				if _, ok := r.Form[k]; ok {
+					return true
+				}
+			}
+			if r.MultipartForm != nil && r.MultipartForm.Value != nil {
+				if _, ok := r.MultipartForm.Value[k]; ok {
+					return true
+				}
+			}
+		}
+		return false
+	}
 	parseInt := func(keys ...string) int64 {
 		s := get(keys...)
 		if s == "" {
@@ -46,8 +63,16 @@ func ParseAssetInputForm(r *http.Request) (AssetInput, error) {
 	statusName := get("assetStatusName", "asset_status_name")
 	statusID := parseInt("assetStatusID", "asset_status_id")
 	isCheck := get("isCheck", "is_check")
+	// is_depreciation defaults to true when the field is absent (preserve historical
+	// behaviour), false when explicitly "false"/"0", true otherwise.
+	isDep := true
+	if hasField("isDepreciation", "is_depreciation") {
+		v := get("isDepreciation", "is_depreciation")
+		isDep = !(v == "false" || v == "0")
+	}
 	return AssetInput{
 		AssetNumber:     get("assetNumber", "asset_number"),
+		ElaasCode:       get("elaasCode", "elaas_code"),
 		AssetName:       get("assetName", "asset_name"),
 		RFIDNum:         get("rfidNum", "rfid_num"),
 		AssetDetails:    get("assetDetails", "asset_details"),
@@ -62,6 +87,7 @@ func ParseAssetInputForm(r *http.Request) (AssetInput, error) {
 		AssetStatusName: statusName,
 		AssetStatusID:   statusID,
 		IsCheck:         isCheck == "true" || isCheck == "1",
+		IsDepreciation:  isDep,
 		ReceivedDate:    get("receivedDate", "received_date"),
 		ExpiryDate:      get("expiryDate", "expiry_date"),
 		GetByID:         parseInt("getByID", "get_by_id"),

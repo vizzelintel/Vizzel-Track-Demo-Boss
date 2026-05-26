@@ -52,9 +52,21 @@ export function normalizeAssetRow(raw: unknown): AssetData | null {
     id,
     assetName: String(r.assetName ?? r.asset_name ?? "—"),
     assetNumber: String(r.assetNumber ?? r.asset_number ?? "—"),
+    elaasCode:
+      r.elaasCode != null
+        ? String(r.elaasCode)
+        : r.elaas_code != null
+          ? String(r.elaas_code)
+          : null,
     rfidNum: String(r.rfidNum ?? r.rfid_num ?? ""),
     assetValue: Number(r.assetValue ?? r.asset_value ?? 0) || 0,
     isCheck: Boolean(r.isCheck ?? r.is_check),
+    isDepreciation:
+      r.isDepreciation != null
+        ? Boolean(r.isDepreciation)
+        : r.is_depreciation != null
+          ? Boolean(r.is_depreciation)
+          : true,
     assetStatusID:
       r.assetStatusID != null
         ? Number(r.assetStatusID)

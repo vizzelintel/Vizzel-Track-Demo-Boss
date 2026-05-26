@@ -9,12 +9,14 @@ import (
 )
 
 const assetListFromTab = `
-SELECT a.id, a.organization_id, a.asset_number, a.asset_name, COALESCE(a.rfid_num, ''),
+SELECT a.id, a.organization_id, a.asset_number, COALESCE(a.elaas_code, ''),
+       a.asset_name, COALESCE(a.rfid_num, ''),
        COALESCE(cat.id, 0), COALESCE(a.asset_class_id, 0),
        COALESCE(cat.category_name, ''), COALESCE(cl.class_name, ''), COALESCE(ty.type_name, ''),
        COALESCE(ty.id, 0),
        COALESCE(a.asset_status_id, 0),
        COALESCE(a.is_check, false),
+       COALESCE(a.is_depreciation, true),
        a.received_date,
        a.expiry_date,
        COALESCE(a.get_by_id, 0),
@@ -49,9 +51,9 @@ func scanAssetTabRow(sc interface {
 	var a Asset
 	var expiry *time.Time
 	err := sc.Scan(
-		&a.ID, &a.OrganizationID, &a.AssetNumber, &a.AssetName, &a.RFIDNum,
+		&a.ID, &a.OrganizationID, &a.AssetNumber, &a.ElaasCode, &a.AssetName, &a.RFIDNum,
 		&a.CategoryID, &a.ClassID, &a.CategoryName, &a.ClassName, &a.TypeName,
-		&a.TypeID, &a.AssetStatusID, &a.IsCheck, &a.ReceivedDate, &expiry,
+		&a.TypeID, &a.AssetStatusID, &a.IsCheck, &a.IsDepreciation, &a.ReceivedDate, &expiry,
 		&a.GetByID, &a.GetFrom, &a.SourceFundID, &a.AvailableAge, &a.AssetDetails,
 		&a.UserID, &a.BuildingName, &a.RoomName, &a.OwnerName, &a.AssetStatusName,
 		&a.AssetValue, &a.Status, &a.CreatedAt,
@@ -135,8 +137,24 @@ func ParseAssetInputJSON(body []byte) (AssetInput, error) {
 		s := getStr(keys...)
 		return s == "true" || s == "1"
 	}
+	// hasKey reports whether any of the listed JSON keys appeared at all
+	// (regardless of value). Used to distinguish "default true" from explicit false.
+	hasKey := func(keys ...string) bool {
+		for _, k := range keys {
+			if _, ok := raw[k]; ok {
+				return true
+			}
+		}
+		return false
+	}
+	isDep := true
+	if hasKey("is_depreciation", "isDepreciation") {
+		s := getStr("is_depreciation", "isDepreciation")
+		isDep = !(s == "false" || s == "0")
+	}
 	return AssetInput{
 		AssetNumber:     getStr("asset_number", "assetNumber"),
+		ElaasCode:       getStr("elaas_code", "elaasCode"),
 		AssetName:       getStr("asset_name", "assetName"),
 		RFIDNum:         getStr("rfid_num", "rfidNum"),
 		AssetDetails:    getStr("asset_details", "assetDetails"),
@@ -159,6 +177,7 @@ func ParseAssetInputJSON(body []byte) (AssetInput, error) {
 		ReceivedDate:    getStr("received_date", "receivedDate"),
 		ExpiryDate:      getStr("expiry_date", "expiryDate"),
 		IsCheck:         getBool("is_check", "isCheck"),
+		IsDepreciation:  isDep,
 	}, nil
 }
 
@@ -251,11 +270,11 @@ func (s *postgresStore) createAssetTab(ctx context.Context, orgID int64, in Asse
 	var id int64
 	err := s.pool.QueryRow(ctx,
 		`INSERT INTO tab_asset (
-			asset_number, rfid_num, asset_name, asset_details, asset_class_id, asset_value, organization_id,
-			asset_status_id, is_check, received_date, expiry_date, get_by_id, get_from, source_fund_id, available_age, created_by
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,1) RETURNING id`,
-		in.AssetNumber, nullStr(in.RFIDNum), in.AssetName, nullStr(in.AssetDetails),
-		nullInt64(in.ClassID), in.AssetValue, orgID, nullInt64(stID), in.IsCheck,
+			asset_number, elaas_code, rfid_num, asset_name, asset_details, asset_class_id, asset_value, organization_id,
+			asset_status_id, is_check, is_depreciation, received_date, expiry_date, get_by_id, get_from, source_fund_id, available_age, created_by
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,1) RETURNING id`,
+		in.AssetNumber, nullStr(in.ElaasCode), nullStr(in.RFIDNum), in.AssetName, nullStr(in.AssetDetails),
+		nullInt64(in.ClassID), in.AssetValue, orgID, nullInt64(stID), in.IsCheck, in.IsDepreciation,
 		recv, exp, nullInt64(int64(in.GetByID)), nullStr(in.GetFrom),
 		nullInt64(int64(in.SourceFundID)), nullInt64(in.AvailableAge),
 	).Scan(&id)
@@ -294,12 +313,12 @@ func (s *postgresStore) updateAssetTab(ctx context.Context, orgID, id int64, in 
 	recv := parseInputTime(in.ReceivedDate)
 	exp := parseInputTimePtr(in.ExpiryDate)
 	_, err := s.pool.Exec(ctx,
-		`UPDATE tab_asset SET asset_number=$3, rfid_num=$4, asset_name=$5, asset_details=$6, asset_class_id=$7,
-		 asset_value=$8, asset_status_id=$9, is_check=$10, received_date=$11, expiry_date=$12,
-		 get_by_id=$13, get_from=$14, source_fund_id=$15, available_age=$16, updated_at=NOW()
+		`UPDATE tab_asset SET asset_number=$3, elaas_code=$4, rfid_num=$5, asset_name=$6, asset_details=$7, asset_class_id=$8,
+		 asset_value=$9, asset_status_id=$10, is_check=$11, is_depreciation=$12, received_date=$13, expiry_date=$14,
+		 get_by_id=$15, get_from=$16, source_fund_id=$17, available_age=$18, updated_at=NOW()
 		 WHERE id=$1 AND organization_id=$2`,
-		id, orgID, in.AssetNumber, nullStr(in.RFIDNum), in.AssetName, nullStr(in.AssetDetails),
-		nullInt64(in.ClassID), in.AssetValue, nullInt64(stID), in.IsCheck,
+		id, orgID, in.AssetNumber, nullStr(in.ElaasCode), nullStr(in.RFIDNum), in.AssetName, nullStr(in.AssetDetails),
+		nullInt64(in.ClassID), in.AssetValue, nullInt64(stID), in.IsCheck, in.IsDepreciation,
 		recv, exp, nullInt64(int64(in.GetByID)), nullStr(in.GetFrom),
 		nullInt64(int64(in.SourceFundID)), nullInt64(in.AvailableAge),
 	)

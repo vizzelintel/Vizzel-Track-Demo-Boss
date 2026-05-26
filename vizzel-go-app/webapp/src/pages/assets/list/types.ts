@@ -9,8 +9,12 @@ export const assetFormSchema = z.object({
   assetClassID: z.string().min(1, "กรุณาเลือกกลุ่ม"),
   assetValue: z.coerce.number().min(1, "กรุณากรอกมูลค่ามากกว่า 0"),
   assetNumber: z.string().min(1, "กรุณากรอกรหัสสินทรัพย์"),
+  // R1: รหัส Elaas (optional national registry code) — paired with assetNumber.
+  elaasCode: z.string().optional(),
   rfidNum: z.string().optional(),
   isCheck: z.boolean().default(false),
+  // R1: คิดค่าเสื่อม flag. Default true to match Postgres default.
+  isDepreciation: z.boolean().default(true),
 
   receivedDate: z.date({ message: "กรุณาเลือกวันที่ได้รับ" }),
   expiryDate: z.date().nullable().optional(),
@@ -47,9 +51,11 @@ export interface AssetData {
   id: number;
   assetName: string;
   assetNumber: string;
+  elaasCode?: string | null;
   rfidNum: string;
   assetValue: number;
   isCheck: boolean;
+  isDepreciation?: boolean;
   assetStatusID: number | null;
   assetStatusName: string | null;
   image: string | null;

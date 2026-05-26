@@ -81,6 +81,7 @@ import {
   resolveHolderUserId,
   resolveLovSelectValue,
 } from "@/lib/asset-form-resolve";
+import { autoFormatAssetNumber } from "@/lib/asset-code-format";
 
 interface AssetDialogProps {
   open: boolean;
@@ -163,11 +164,13 @@ export function AssetDialog({
       assetDetails: "",
       assetValue: 0,
       assetNumber: "",
+      elaasCode: "",
       rfidNum: "",
       getBy: "",
       getFrom: "",
       sourceFund: "",
       isCheck: false,
+      isDepreciation: true,
       receivedDate: new Date(),
       expiryDate: undefined,
       assetStatusID: "",
@@ -178,7 +181,7 @@ export function AssetDialog({
       // Location Fields
       buildingID: "",
       roomID: "",
- 
+
       // Asset Holder
       userID: "",
       images: undefined,
@@ -451,6 +454,7 @@ export function AssetDialog({
           assetDetails: asset.assetDetail || "",
           assetValue: Number(asset.assetValue),
           assetNumber: asset.assetNumber,
+          elaasCode: asset.elaasCode || "",
           rfidNum: asset.rfidNum || "",
           getBy: resolveLovSelectValue(
             asset.getByID,
@@ -464,6 +468,7 @@ export function AssetDialog({
             fundOpts,
           ),
           isCheck: Boolean(asset.isCheck),
+          isDepreciation: asset.isDepreciation ?? true,
           receivedDate: parseAssetDate(asset.receivedDate) ?? new Date(),
           expiryDate: parseAssetDate(asset.expiryDate ?? undefined),
           assetStatusID: asset.assetStatusID
@@ -550,11 +555,13 @@ export function AssetDialog({
         assetDetails: "",
         assetValue: 0,
         assetNumber: "",
+        elaasCode: "",
         rfidNum: "",
         getBy: "",
         getFrom: "",
         sourceFund: "",
         isCheck: false,
+        isDepreciation: true,
         receivedDate: new Date(),
         expiryDate: undefined,
         assetStatusID: "",
@@ -600,6 +607,11 @@ export function AssetDialog({
       if (values.assetValue !== undefined && values.assetValue !== null)
         formData.append("assetValue", String(values.assetValue));
       formData.append("assetNumber", values.assetNumber);
+      if (values.elaasCode) formData.append("elaasCode", values.elaasCode);
+      formData.append(
+        "isDepreciation",
+        values.isDepreciation ? "true" : "false",
+      );
       if (values.rfidNum) formData.append("rfidNum", values.rfidNum);
       if (values.getBy) formData.append("getByID", values.getBy);
       if (values.getFrom) formData.append("getFrom", values.getFrom);
@@ -1026,15 +1038,49 @@ export function AssetDialog({
                         <CardContent className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
                           <FormField
                             control={form.control}
+                            name="elaasCode"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>รหัส Elaas</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    placeholder="101-630926-00001"
+                                    {...field}
+                                    value={field.value || ""}
+                                    autoComplete="off"
+                                  />
+                                </FormControl>
+                                <FormDescription>
+                                  รหัสจากระบบบัญชีกลาง (ถ้ามี)
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
                             name="assetNumber"
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>
-                                  รหัสสินทรัพย์{" "}
+                                  รหัสทรัพย์สิน อปท.{" "}
                                   <span className="text-red-500">*</span>
                                 </FormLabel>
                                 <FormControl>
-                                  <Input placeholder="AST-XXXX" {...field} data-testid={TEST_IDS.ASSET_FORM.INPUT_CODE} />
+                                  <Input
+                                    placeholder="001-43-0001"
+                                    {...field}
+                                    onBlur={(e) => {
+                                      const formatted = autoFormatAssetNumber(
+                                        e.target.value,
+                                      );
+                                      if (formatted !== e.target.value) {
+                                        field.onChange(formatted);
+                                      }
+                                      field.onBlur();
+                                    }}
+                                    data-testid={TEST_IDS.ASSET_FORM.INPUT_CODE}
+                                  />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
@@ -1520,7 +1566,7 @@ export function AssetDialog({
                             )}
                           />
 
-                          <div className="bg-muted/50 mt-2 flex items-center gap-3 rounded-md border p-3">
+                          <div className="bg-muted/50 mt-2 flex flex-col gap-3 rounded-md border p-3">
                             <FormField
                               control={form.control}
                               name="isCheck"
@@ -1538,6 +1584,30 @@ export function AssetDialog({
                                     <FormLabel className="font-normal">
                                       ต้องตรวจนับ
                                     </FormLabel>
+                                  </div>
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="isDepreciation"
+                              render={({ field }) => (
+                                <FormItem className="flex flex-row items-center space-y-0 space-x-3">
+                                  <FormControl>
+                                    <input
+                                      type="checkbox"
+                                      checked={field.value}
+                                      onChange={field.onChange}
+                                      className="text-primary focus:ring-primary h-4 w-4 rounded border-gray-300"
+                                    />
+                                  </FormControl>
+                                  <div className="space-y-1 leading-none">
+                                    <FormLabel className="font-normal">
+                                      คิดค่าเสื่อม
+                                    </FormLabel>
+                                    <FormDescription className="text-xs">
+                                      เปิดไว้สำหรับครุภัณฑ์ที่ต้องคิดค่าเสื่อมราคา
+                                    </FormDescription>
                                   </div>
                                 </FormItem>
                               )}
