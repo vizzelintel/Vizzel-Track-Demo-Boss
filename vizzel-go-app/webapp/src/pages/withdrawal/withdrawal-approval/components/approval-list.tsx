@@ -112,11 +112,20 @@ export function ApprovalList({
     try {
       if (selectedItem.action === 'take') {
         if (!selectedItem.approveID) return;
-        await confirmTake(selectedItem.approveID, {
+        const res = (await confirmTake(selectedItem.approveID, {
           isTake: true,
           note: payload.note,
-        });
-        toast.success('ยืนยันการรับของสำเร็จ');
+        })) as { data?: { qrPayload?: string; issueToken?: string } };
+        const qr = res?.data?.qrPayload;
+        if (qr) {
+          const url = `${window.location.origin}${qr}`;
+          toast.success('ออกของแล้ว — เปิด QR', {
+            description: url,
+            duration: 12000,
+          });
+        } else {
+          toast.success('ยืนยันการรับของสำเร็จ');
+        }
       } else {
         await confirmWithdrawal(selectedItem.id, selectedItem.type, {
           isConfirm: selectedItem.action === 'approve' ? 1 : 0,

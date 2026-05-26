@@ -7,6 +7,9 @@ export interface ApprovalInstance {
   refId: number;
   status: string;
   currentStep: number;
+  currentStepKey?: string;
+  currentStepLabel?: string;
+  canAct?: boolean;
   branch?: string;
   requestedBy?: number;
   createdAt?: string;
@@ -35,4 +38,8 @@ export function approvalAction(
 
 export function submitRepair(id: number) {
   return apiRequest(`/asset/repair/submit/${id}`, { method: 'POST' });
+}
+
+export function completeRepair(id: number) {
+  return apiRequest(`/asset/repair/complete/${id}`, { method: 'POST' });
 }

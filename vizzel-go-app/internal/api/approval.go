@@ -1,9 +1,12 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/vizzelintel/vizzel-track-demo-boss/vizzel-go-app/internal/auth"
@@ -21,6 +24,9 @@ func (h *Handler) ListPendingApprovals(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "list failed")
 		return
+	}
+	for i := range list {
+		list[i].CanAct = store.CanActOnApprovalStep(claims.RoleID, list[i].CurrentStepKey)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": list})
 }
@@ -57,7 +63,7 @@ func (h *Handler) ApprovalAction(w http.ResponseWriter, r *http.Request) {
 		body.Action = "approve"
 	}
 	instBefore, _ := h.store.GetApprovalInstance(r.Context(), claims.OrganizationID, id)
-	if err := h.store.ApprovalAction(r.Context(), claims.OrganizationID, id, claims.UserID, body.Action, body.Branch, body.Note); err != nil {
+	if err := h.store.ApprovalAction(r.Context(), claims.OrganizationID, id, claims.UserID, claims.RoleID, body.Action, body.Branch, body.Note); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -130,6 +136,106 @@ func (h *Handler) RepairCreateWithApproval(w http.ResponseWriter, r *http.Reques
 		h.dispatchApprovalSubmitted(r, claims, "repair", id)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]int64{"id": id}})
+}
+
+func (h *Handler) RepairComplete(w http.ResponseWriter, r *http.Request) {
+	claims, ok := claimsFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err := h.store.CompleteRepair(r.Context(), claims.OrganizationID, id); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if h.dispatcher != nil {
+		_ = h.dispatcher.Dispatch(r.Context(), notify.Event{
+			OrganizationID: claims.OrganizationID,
+			UserIDs:        []int64{claims.UserID},
+			EventType:      "repair.completed",
+			Title:          "ปิดงานซ่อมแล้ว",
+			Body:           "แจ้งซ่อม #" + strconv.FormatInt(id, 10),
+			Link:           "/repair",
+			RefType:        "repair",
+			RefID:          id,
+		})
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "completed"})
+}
+
+func (h *Handler) WithdrawalIssue(w http.ResponseWriter, r *http.Request) {
+	claims, ok := claimsFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	idStr := chi.URLParam(r, "id")
+	if idStr == "" {
+		idStr = chi.URLParam(r, "approveID")
+	}
+	id, _ := strconv.ParseInt(idStr, 10, 64)
+	token, err := h.store.IssueWithdrawal(r.Context(), claims.OrganizationID, id)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	qrPayload := "/withdrawal/verify/" + token
+	writeJSON(w, http.StatusOK, map[string]any{
+		"data": map[string]string{
+			"status":     "borrowed",
+			"issueToken": token,
+			"qrPayload":  qrPayload,
+		},
+	})
+}
+
+func (h *Handler) WithdrawalVerifyByToken(w http.ResponseWriter, r *http.Request) {
+	token := chi.URLParam(r, "token")
+	row, err := h.store.GetWithdrawalByIssueToken(r.Context(), token)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": row})
+}
+
+func (h *Handler) StartBackgroundJobs(ctx context.Context) {
+	if h.dispatcher == nil {
+		return
+	}
+	go func() {
+		time.Sleep(30 * time.Second)
+		h.runWithdrawalReminders(ctx)
+		ticker := time.NewTicker(6 * time.Hour)
+		for range ticker.C {
+			h.runWithdrawalReminders(ctx)
+		}
+	}()
+}
+
+func (h *Handler) runWithdrawalReminders(ctx context.Context) {
+	list, err := h.store.ListWithdrawalRemindersDue(ctx)
+	if err != nil || len(list) == 0 {
+		return
+	}
+	for _, row := range list {
+		var users []int64
+		if row.UserID > 0 {
+			users = append(users, row.UserID)
+		}
+		_ = h.dispatcher.Dispatch(ctx, notify.Event{
+			OrganizationID: row.OrganizationID,
+			UserIDs:        users,
+			EventType:      "withdrawal.due_soon",
+			Title:          "แจ้งเตือนคืนครุภัณฑ์",
+			Body:           fmt.Sprintf("%s ครบกำหนดคืน %s", row.ItemName, row.DueDate.Format("2006-01-02")),
+			Link:           "/withdrawal",
+			RefType:        "withdrawal",
+			RefID:          row.ID,
+		})
+		_ = h.store.MarkWithdrawalReminderSent(ctx, row.ID)
+	}
 }
 
 func (h *Handler) dispatchApprovalSubmitted(r *http.Request, claims *auth.Claims, workflow string, refID int64) {

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { apiRequest } from "@/lib/api";
-import { useUser } from "@/hooks/use-user";
+import { completeRepair } from "@/lib/approval";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,8 +18,6 @@ interface RepairRow {
 }
 
 export function RepairWorkflowPage() {
-  const { user } = useUser();
-  const orgID = user?.organizationRelation?.organizationID;
   const [rows, setRows] = useState<RepairRow[]>([]);
   const [assetNumber, setAssetNumber] = useState("");
   const [symptom, setSymptom] = useState("");
@@ -63,12 +61,22 @@ export function RepairWorkflowPage() {
     }
   };
 
+  const closeRepair = async (id: number) => {
+    try {
+      await completeRepair(id);
+      toast.success("ปิดงานซ่อมแล้ว");
+      load();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "ปิดงานไม่ได้ — อาจมีรายการยืมค้าง");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">แจ้งซ่อมบำรุง</h1>
         <p className="text-muted-foreground text-sm">
-          ส่งเข้าสายอนุมัติ — หัวหน้างาน → ผู้อำนวยการ (A/B) → เลขาฯ/นายก (สาย B)
+          ส่งเข้าสายอนุมัติ — ปิดงานได้เมื่อไม่มีครุภัณฑ์อยู่ระหว่างยืม
         </p>
       </div>
 
@@ -97,7 +105,14 @@ export function RepairWorkflowPage() {
                 <p className="font-medium">{r.title}</p>
                 <p className="text-muted-foreground">{r.subtitle}</p>
               </div>
-              <Badge variant="outline">{r.status}</Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">{r.status}</Badge>
+                {(r.status === "in_progress" || r.status === "approved") && (
+                  <Button size="sm" variant="secondary" onClick={() => closeRepair(r.id)}>
+                    ปิดงาน
+                  </Button>
+                )}
+              </div>
             </li>
           ))}
           {rows.length === 0 && (

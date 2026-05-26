@@ -110,3 +110,14 @@ export function confirmTake(approveID: number, payload: ConfirmTakePayload) {
     body: JSON.stringify(payload),
   });
 }
+
+export function issueWithdrawal(id: number) {
+  return apiRequest<{ data: { issueToken: string; qrPayload: string; status: string } }>(
+    `/withdrawal/issue/${id}`,
+    { method: 'POST' },
+  );
+}
+
+export function returnWithdrawal(id: number) {
+  return apiRequest(`/withdrawal/${id}/return`, { method: 'POST' });
+}

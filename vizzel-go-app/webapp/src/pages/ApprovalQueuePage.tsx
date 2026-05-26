@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { approvalAction, listPendingApprovals, type ApprovalInstance } from "@/lib/approval";
+import { useUser } from "@/hooks/use-user";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,6 +15,8 @@ const workflowLabels: Record<string, string> = {
 };
 
 export function ApprovalQueuePage() {
+  const { user } = useUser();
+  const roleID = user?.organizationRelation?.roleID ?? 4;
   const [items, setItems] = useState<ApprovalInstance[]>([]);
   const [loading, setLoading] = useState(true);
   const [note, setNote] = useState("");
@@ -39,8 +42,8 @@ export function ApprovalQueuePage() {
       toast.success(action === "approve" ? "อนุมัติแล้ว" : "ปฏิเสธแล้ว");
       setNote("");
       load();
-    } catch {
-      toast.error("ดำเนินการไม่สำเร็จ");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "ดำเนินการไม่สำเร็จ");
     }
   };
 
@@ -49,7 +52,7 @@ export function ApprovalQueuePage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">คิวอนุมัติ</h1>
         <p className="text-muted-foreground text-sm">
-          แจ้งซ่อม / เบิก-ยืม / โอนย้าย — หัวหน้างาน → ผู้อำนวยการ (สาย A/B) → เลขาฯ/นายก (สาย B)
+          บทบาทของคุณ: role {roleID} — หัวหน้างาน (3+) · ผอ./เลขา/นายก (2+)
         </p>
       </div>
       <Textarea
@@ -72,12 +75,14 @@ export function ApprovalQueuePage() {
                   {item.refId}
                 </p>
                 <p className="text-muted-foreground text-xs">
-                  ขั้นที่ {item.currentStep}
+                  ขั้น: {item.currentStepLabel ?? item.currentStepKey ?? item.currentStep}
                   {item.branch ? ` · สาย ${item.branch}` : ""}
                 </p>
               </div>
-              <Badge variant="secondary">{item.status}</Badge>
-              {item.currentStep === 2 && (
+              <Badge variant={item.canAct ? "default" : "secondary"}>
+                {item.canAct ? "รอคุณอนุมัติ" : "รอผู้อื่น"}
+              </Badge>
+              {item.canAct && item.currentStepKey === "director" && (
                 <>
                   <Button size="sm" variant="outline" onClick={() => act(item.id, "approve", "A")}>
                     สาย A (อนุมัติจบ)
@@ -87,12 +92,16 @@ export function ApprovalQueuePage() {
                   </Button>
                 </>
               )}
-              <Button size="sm" onClick={() => act(item.id, "approve")}>
-                อนุมัติ
-              </Button>
-              <Button size="sm" variant="destructive" onClick={() => act(item.id, "reject")}>
-                ปฏิเสธ
-              </Button>
+              {item.canAct && item.currentStepKey !== "director" && (
+                <Button size="sm" onClick={() => act(item.id, "approve")}>
+                  อนุมัติ
+                </Button>
+              )}
+              {item.canAct && (
+                <Button size="sm" variant="destructive" onClick={() => act(item.id, "reject")}>
+                  ปฏิเสธ
+                </Button>
+              )}
             </li>
           ))}
         </ul>

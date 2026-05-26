@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -22,7 +23,9 @@ type Handler struct {
 }
 
 func New(cfg config.Config, s store.Store) *Handler {
-	return &Handler{cfg: cfg, store: s, dispatcher: notify.New(s)}
+	h := &Handler{cfg: cfg, store: s, dispatcher: notify.New(s)}
+	h.StartBackgroundJobs(context.Background())
+	return h
 }
 
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {

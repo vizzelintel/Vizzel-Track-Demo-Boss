@@ -124,6 +124,11 @@ const RepairWorkflowPage = lazy(() =>
 const CentralAssetsPage = lazy(() =>
   import("./pages/CentralAssetsPage").then((m) => ({ default: m.CentralAssetsPage })),
 );
+const WithdrawalVerifyPage = lazy(() =>
+  import("./pages/WithdrawalVerifyPage").then((m) => ({
+    default: m.WithdrawalVerifyPage,
+  })),
+);
 
 function Lazy({ children }: { children: ReactNode }) {
   return <Suspense fallback={<PageLoader />}>{children}</Suspense>;
@@ -162,6 +167,14 @@ function PublicOnly({
 export default function App() {
   return (
     <Routes>
+      <Route
+        path="/withdrawal/verify/:token"
+        element={
+          <Lazy>
+            <WithdrawalVerifyPage />
+          </Lazy>
+        }
+      />
       <Route
         path="/login"
         element={

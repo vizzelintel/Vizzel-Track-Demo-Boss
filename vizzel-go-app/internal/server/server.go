@@ -21,6 +21,7 @@ func New(cfg config.Config, st store.Store) http.Handler {
 	r.Use(middleware.RequestID, middleware.RealIP, middleware.Logger, middleware.Recoverer)
 
 	r.Get("/health", h.Health)
+	r.Get("/withdrawal/verify/{token}", h.WithdrawalVerifyByToken)
 	r.Post("/auth/login", h.Login) // production path
 	r.Post("/auth/register", h.Register)
 	r.Post("/auth/refresh", h.Refresh)
@@ -80,6 +81,9 @@ func New(cfg config.Config, st store.Store) http.Handler {
 			r.Get("/repairs", h.ListRepairs)
 			r.Post("/repairs", h.RepairCreateWithApproval)
 			r.Post("/repairs/{id}/submit", h.RepairSubmitApproval)
+			r.Post("/repairs/{id}/complete", h.RepairComplete)
+			r.Post("/withdrawals/{id}/issue", h.WithdrawalIssue)
+			r.Get("/withdrawals/verify/{token}", h.WithdrawalVerifyByToken)
 			r.Get("/approvals/pending", h.ListPendingApprovals)
 			r.Get("/approvals/{id}", h.GetApprovalInstance)
 			r.Post("/approvals/{id}/action", h.ApprovalAction)

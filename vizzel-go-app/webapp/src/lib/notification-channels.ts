@@ -19,6 +19,8 @@ export const EVENT_CATALOG: { value: string; label: string }[] = [
   { value: "withdrawal.requested", label: "คำขอเบิก-ยืม" },
   { value: "withdrawal.approved", label: "อนุมัติเบิก-ยืม" },
   { value: "repair.submitted", label: "แจ้งซ่อม" },
+  { value: "repair.completed", label: "ปิดงานซ่อม" },
+  { value: "withdrawal.due_soon", label: "แจ้งเตือนก่อนคืน 1 วัน" },
   { value: "transfer.requested", label: "ขอย้ายสินทรัพย์" },
   { value: "system.test", label: "ทดสอบระบบ" },
 ];

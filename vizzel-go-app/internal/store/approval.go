@@ -26,8 +26,11 @@ type ApprovalInstance struct {
 	CreatedAt      time.Time  `json:"createdAt"`
 	UpdatedAt      *time.Time `json:"updatedAt,omitempty"`
 	CompletedAt    *time.Time `json:"completedAt,omitempty"`
-	Steps          []WorkflowStep `json:"steps,omitempty"`
-	Logs           []ApprovalStepLog `json:"logs,omitempty"`
+	Steps             []WorkflowStep `json:"steps,omitempty"`
+	Logs              []ApprovalStepLog `json:"logs,omitempty"`
+	CurrentStepKey    string `json:"currentStepKey,omitempty"`
+	CurrentStepLabel  string `json:"currentStepLabel,omitempty"`
+	CanAct            bool   `json:"canAct,omitempty"`
 }
 
 type ApprovalStepLog struct {
@@ -191,11 +194,14 @@ func (s *postgresStore) listApprovalLogs(ctx context.Context, instanceID int64) 
 
 func (s *postgresStore) ListPendingApprovals(ctx context.Context, orgID int64) ([]ApprovalInstance, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT id, organization_id, workflow_code, ref_type, ref_id, status, current_step,
-		        COALESCE(branch,''), COALESCE(requested_by,0), created_at
-		 FROM tab_approval_instance
-		 WHERE organization_id = $1 AND status = 'pending'
-		 ORDER BY id DESC LIMIT 100`,
+		`SELECT i.id, i.organization_id, i.workflow_code, i.ref_type, i.ref_id, i.status, i.current_step,
+		        COALESCE(i.branch,''), COALESCE(i.requested_by,0), i.created_at,
+		        s.step_key, s.label_th
+		 FROM tab_approval_instance i
+		 JOIN tab_approval_workflow w ON w.code = i.workflow_code
+		 JOIN tab_approval_workflow_step s ON s.workflow_id = w.id AND s.step_order = i.current_step
+		 WHERE i.organization_id = $1 AND i.status = 'pending'
+		 ORDER BY i.id DESC LIMIT 100`,
 		orgID,
 	)
 	if err != nil {
@@ -206,7 +212,8 @@ func (s *postgresStore) ListPendingApprovals(ctx context.Context, orgID int64) (
 	for rows.Next() {
 		var inst ApprovalInstance
 		if err := rows.Scan(&inst.ID, &inst.OrganizationID, &inst.WorkflowCode, &inst.RefType, &inst.RefID,
-			&inst.Status, &inst.CurrentStep, &inst.Branch, &inst.RequestedBy, &inst.CreatedAt); err != nil {
+			&inst.Status, &inst.CurrentStep, &inst.Branch, &inst.RequestedBy, &inst.CreatedAt,
+			&inst.CurrentStepKey, &inst.CurrentStepLabel); err != nil {
 			return nil, err
 		}
 		out = append(out, inst)
@@ -214,7 +221,7 @@ func (s *postgresStore) ListPendingApprovals(ctx context.Context, orgID int64) (
 	return out, rows.Err()
 }
 
-func (s *postgresStore) ApprovalAction(ctx context.Context, orgID, instanceID, actorUserID int64, action, branch, note string) error {
+func (s *postgresStore) ApprovalAction(ctx context.Context, orgID, instanceID, actorUserID, actorRoleID int64, action, branch, note string) error {
 	inst, err := s.GetApprovalInstance(ctx, orgID, instanceID)
 	if err != nil {
 		return err
@@ -235,6 +242,9 @@ func (s *postgresStore) ApprovalAction(ctx context.Context, orgID, instanceID, a
 	}
 	if current.StepKey == "" {
 		return fmt.Errorf("invalid step")
+	}
+	if !CanActOnApprovalStep(actorRoleID, current.StepKey) {
+		return fmt.Errorf("ไม่มีสิทธิ์อนุมัติขั้นตอน %s", stepLabelFor(current.StepKey))
 	}
 	_, err = s.pool.Exec(ctx,
 		`INSERT INTO tab_approval_step_log (instance_id, step_order, step_key, actor_user_id, action, branch, note)

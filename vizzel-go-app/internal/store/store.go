@@ -78,7 +78,12 @@ type Store interface {
 	ReturnWithdrawal(ctx context.Context, orgID, id int64) error
 	ListPendingApprovals(ctx context.Context, orgID int64) ([]ApprovalInstance, error)
 	GetApprovalInstance(ctx context.Context, orgID, id int64) (*ApprovalInstance, error)
-	ApprovalAction(ctx context.Context, orgID, instanceID, actorUserID int64, action, branch, note string) error
+	ApprovalAction(ctx context.Context, orgID, instanceID, actorUserID, actorRoleID int64, action, branch, note string) error
+	IssueWithdrawal(ctx context.Context, orgID, id int64) (string, error)
+	GetWithdrawalByIssueToken(ctx context.Context, token string) (map[string]any, error)
+	CompleteRepair(ctx context.Context, orgID, repairID int64) error
+	ListWithdrawalRemindersDue(ctx context.Context) ([]WithdrawalReminderRow, error)
+	MarkWithdrawalReminderSent(ctx context.Context, id int64) error
 	ListTransfers(ctx context.Context, orgID int64) ([]TransferRecord, error)
 	CreateTransfer(ctx context.Context, orgID int64, in TransferInput) (int64, error)
 	ListChildOrganizations(ctx context.Context, parentID int64) ([]Row, error)

@@ -66,6 +66,9 @@ func MountCompatExtended(r chi.Router, h *Handler) {
 	r.Get("/asset/repair/get", h.AssetRepairGet)
 	r.Post("/asset/repair/create", h.AssetRepairCreate)
 	r.Post("/asset/repair/submit/{id}", h.RepairSubmitApproval)
+	r.Post("/asset/repair/complete/{id}", h.RepairComplete)
+	r.Post("/withdrawal/issue/{id}", h.WithdrawalIssue)
+	r.Get("/withdrawal/verify/{token}", h.WithdrawalVerifyByToken)
 	r.Patch("/asset/repair/update/{id}", h.AssetRepairUpdate)
 	r.Patch("/asset/repair/delete/{id}", h.AssetRepairDelete)
 	r.Get("/asset/status/get_all", h.CompatCategories) // alias statuses via reference
@@ -505,14 +508,7 @@ func (h *Handler) WithdrawalExternalConfirm(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *Handler) WithdrawalTake(w http.ResponseWriter, r *http.Request) {
-	claims, ok := claimsFromContext(r.Context())
-	if !ok {
-		writeError(w, http.StatusUnauthorized, "unauthorized")
-		return
-	}
-	id, _ := strconv.ParseInt(chi.URLParam(r, "approveID"), 10, 64)
-	_ = h.store.UpdateWithdrawalStatus(r.Context(), claims.OrganizationID, id, "taken")
-	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]string{"status": "taken"}})
+	h.WithdrawalIssue(w, r)
 }
 
 func (h *Handler) WithdrawalGet(w http.ResponseWriter, r *http.Request) {

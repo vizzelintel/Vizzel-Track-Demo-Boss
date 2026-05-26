@@ -37,8 +37,28 @@ func (s *sqliteStore) GetApprovalInstance(ctx context.Context, orgID, id int64) 
 	return nil, fmt.Errorf("approval requires postgres")
 }
 
-func (s *sqliteStore) ApprovalAction(ctx context.Context, orgID, instanceID, actorUserID int64, action, branch, note string) error {
+func (s *sqliteStore) ApprovalAction(ctx context.Context, orgID, instanceID, actorUserID, actorRoleID int64, action, branch, note string) error {
 	return fmt.Errorf("approval requires postgres")
+}
+
+func (s *sqliteStore) IssueWithdrawal(ctx context.Context, orgID, id int64) (string, error) {
+	return "", fmt.Errorf("requires postgres")
+}
+
+func (s *sqliteStore) GetWithdrawalByIssueToken(ctx context.Context, token string) (map[string]any, error) {
+	return nil, fmt.Errorf("requires postgres")
+}
+
+func (s *sqliteStore) CompleteRepair(ctx context.Context, orgID, repairID int64) error {
+	return fmt.Errorf("requires postgres")
+}
+
+func (s *sqliteStore) ListWithdrawalRemindersDue(ctx context.Context) ([]WithdrawalReminderRow, error) {
+	return nil, nil
+}
+
+func (s *sqliteStore) MarkWithdrawalReminderSent(ctx context.Context, id int64) error {
+	return nil
 }
 
 func (s *sqliteStore) ListTransfers(ctx context.Context, orgID int64) ([]TransferRecord, error) {
