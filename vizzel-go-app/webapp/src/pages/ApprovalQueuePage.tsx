@@ -14,6 +14,7 @@ const workflowLabels: Record<string, string> = {
   withdrawal: "เบิก-ยืม",
   transfer: "โอนย้าย (ต้นทาง)",
   transfer_receive: "รับโอน (ปลายทาง)",
+  disposal: "ออกจำหน่าย",
 };
 
 export function ApprovalQueuePage() {
@@ -46,6 +47,9 @@ export function ApprovalQueuePage() {
       return items.filter(
         (i) => i.workflowCode === "transfer" || i.workflowCode === "transfer_receive",
       );
+    }
+    if (workflowFilter === "disposal") {
+      return items.filter((i) => i.workflowCode === "disposal");
     }
     return items.filter((i) => i.workflowCode === workflowFilter);
   }, [items, workflowFilter]);
@@ -95,6 +99,9 @@ export function ApprovalQueuePage() {
                 </p>
                 <p className="text-muted-foreground text-xs">
                   ขั้น: {item.currentStepLabel ?? item.currentStepKey ?? item.currentStep}
+                  {item.currentStepAssigneeName
+                    ? ` · ผู้อนุมัติ: ${item.currentStepAssigneeName}`
+                    : ""}
                   {item.branch ? ` · สาย ${item.branch}` : ""}
                 </p>
               </div>

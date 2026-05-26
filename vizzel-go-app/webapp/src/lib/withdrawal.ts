@@ -8,6 +8,7 @@ export interface CreateInternalWithdrawalPayload {
   buildingID?: number;
   desireReturn?: string; // ISO Date string
   note?: string;
+  stepAssignees?: Record<string, number>;
 }
 
 export interface CreateExternalWithdrawalPayload {

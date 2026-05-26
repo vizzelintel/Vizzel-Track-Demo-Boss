@@ -58,6 +58,13 @@ func MountCompatExtended(r chi.Router, h *Handler) {
 	r.Get("/approval/pending", h.ListPendingApprovals)
 	r.Get("/approval/get/{id}", h.GetApprovalInstance)
 	r.Post("/approval/action/{id}", h.ApprovalAction)
+	r.Get("/asset/out/list", h.AssetOutList)
+	r.Post("/asset/out/create", h.AssetOutCreate)
+	r.Post("/asset/out/import", h.AssetOutImport)
+	r.Get("/asset/out/template", h.AssetOutTemplate)
+	r.Post("/disposal/lots/{id}/submit", h.DisposalSubmitApproval)
+	r.Get("/uploads/disposal_doc/{name}", h.ServeDisposalDoc)
+
 	r.Get("/transfer/list", h.ListTransfers)
 	r.Get("/transfer/dashboard-stats", h.TransferDashboardStats)
 	r.Post("/transfer/create", h.CreateTransfer)
@@ -384,8 +391,9 @@ func (h *Handler) withdrawalRequest(w http.ResponseWriter, r *http.Request, inte
 		UserID        int64  `json:"userID"`
 		Type          any    `json:"type"`
 		DesireReturn  string `json:"desireReturn"`
-		Note          string `json:"note"`
-		Submit        bool   `json:"submit"`
+		Note          string            `json:"note"`
+		Submit        bool              `json:"submit"`
+		StepAssignees map[string]int64  `json:"stepAssignees"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
 	wType := "borrow"
@@ -430,7 +438,7 @@ func (h *Handler) withdrawalRequest(w http.ResponseWriter, r *http.Request, inte
 		submit = true
 	}
 	if submit && claims != nil {
-		_ = h.store.SubmitWithdrawalForApproval(r.Context(), orgID, id, reqBy)
+		_ = h.store.SubmitWithdrawalForApproval(r.Context(), orgID, id, reqBy, body.StepAssignees)
 	}
 	if h.dispatcher != nil {
 		var recipients []int64

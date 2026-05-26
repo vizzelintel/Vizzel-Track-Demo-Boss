@@ -28,9 +28,11 @@ type ApprovalInstance struct {
 	CompletedAt    *time.Time `json:"completedAt,omitempty"`
 	Steps             []WorkflowStep `json:"steps,omitempty"`
 	Logs              []ApprovalStepLog `json:"logs,omitempty"`
-	CurrentStepKey    string `json:"currentStepKey,omitempty"`
-	CurrentStepLabel  string `json:"currentStepLabel,omitempty"`
-	CanAct            bool   `json:"canAct,omitempty"`
+	CurrentStepKey          string                 `json:"currentStepKey,omitempty"`
+	CurrentStepLabel        string                 `json:"currentStepLabel,omitempty"`
+	CurrentStepAssigneeName string                 `json:"currentStepAssigneeName,omitempty"`
+	StepAssignees           []ApprovalStepAssignee `json:"stepAssignees,omitempty"`
+	CanAct                  bool                   `json:"canAct,omitempty"`
 }
 
 type ApprovalStepLog struct {
@@ -185,6 +187,20 @@ func (s *postgresStore) GetApprovalInstance(ctx context.Context, orgID, id int64
 	}
 	inst.Steps, _ = s.workflowSteps(ctx, inst.WorkflowCode)
 	inst.Logs, _ = s.listApprovalLogs(ctx, id)
+	inst.StepAssignees, _ = s.listInstanceStepAssignees(ctx, id)
+	for _, st := range inst.Steps {
+		if st.StepOrder == inst.CurrentStep {
+			inst.CurrentStepKey = st.StepKey
+			inst.CurrentStepLabel = st.LabelTH
+			break
+		}
+	}
+	for _, a := range inst.StepAssignees {
+		if a.StepKey == inst.CurrentStepKey {
+			inst.CurrentStepAssigneeName = a.UserName
+			break
+		}
+	}
 	return &inst, nil
 }
 
@@ -215,10 +231,13 @@ func (s *postgresStore) ListPendingApprovals(ctx context.Context, orgID int64) (
 	rows, err := s.pool.Query(ctx,
 		`SELECT i.id, i.organization_id, i.workflow_code, i.ref_type, i.ref_id, i.status, i.current_step,
 		        COALESCE(i.branch,''), COALESCE(i.requested_by,0), i.created_at,
-		        s.step_key, s.label_th
+		        s.step_key, s.label_th,
+		        COALESCE(NULLIF(TRIM(COALESCE(u.name,'') || ' ' || COALESCE(u.surname,'')), ''), u.email, '')
 		 FROM tab_approval_instance i
 		 JOIN tab_approval_workflow w ON w.code = i.workflow_code
 		 JOIN tab_approval_workflow_step s ON s.workflow_id = w.id AND s.step_order = i.current_step
+		 LEFT JOIN tab_approval_instance_step ia ON ia.instance_id = i.id AND ia.step_key = s.step_key
+		 LEFT JOIN tab_user u ON u.id = ia.assigned_user_id
 		 WHERE i.organization_id = $1 AND i.status = 'pending'
 		 ORDER BY i.id DESC LIMIT 100`,
 		orgID,
@@ -232,7 +251,7 @@ func (s *postgresStore) ListPendingApprovals(ctx context.Context, orgID int64) (
 		var inst ApprovalInstance
 		if err := rows.Scan(&inst.ID, &inst.OrganizationID, &inst.WorkflowCode, &inst.RefType, &inst.RefID,
 			&inst.Status, &inst.CurrentStep, &inst.Branch, &inst.RequestedBy, &inst.CreatedAt,
-			&inst.CurrentStepKey, &inst.CurrentStepLabel); err != nil {
+			&inst.CurrentStepKey, &inst.CurrentStepLabel, &inst.CurrentStepAssigneeName); err != nil {
 			return nil, err
 		}
 		out = append(out, inst)
@@ -262,7 +281,7 @@ func (s *postgresStore) ApprovalAction(ctx context.Context, orgID, instanceID, a
 	if current.StepKey == "" {
 		return fmt.Errorf("invalid step")
 	}
-	ok, err := s.UserCanApproveStep(ctx, orgID, actorUserID, actorRoleID, current.StepKey)
+	ok, err := s.UserCanApproveInstanceStep(ctx, orgID, instanceID, actorUserID, actorRoleID, current.StepKey)
 	if err != nil {
 		return err
 	}
@@ -333,6 +352,11 @@ func (s *postgresStore) syncRefStatus(ctx context.Context, inst *ApprovalInstanc
 			inst.RefID, wStatus,
 		)
 		return err
+	case "disposal":
+		if approvalStatus == "approved" {
+			return s.finalizeDisposalLot(ctx, inst.RefID, true)
+		}
+		return s.finalizeDisposalLot(ctx, inst.RefID, false)
 	case "transfer":
 		if inst.WorkflowCode == "transfer_receive" {
 			if approvalStatus == "approved" {
@@ -361,8 +385,8 @@ func (s *postgresStore) syncRefStatus(ctx context.Context, inst *ApprovalInstanc
 	return nil
 }
 
-func (s *postgresStore) SubmitRepairForApproval(ctx context.Context, orgID, repairID, userID int64) error {
-	instID, err := s.CreateApprovalInstance(ctx, orgID, "repair", "repair", repairID, userID)
+func (s *postgresStore) SubmitRepairForApproval(ctx context.Context, orgID, repairID, userID int64, stepAssignees map[string]int64) error {
+	instID, err := s.createApprovalInstanceWithAssignees(ctx, orgID, "repair", "repair", repairID, userID, stepAssignees)
 	if err != nil {
 		return err
 	}
@@ -373,8 +397,8 @@ func (s *postgresStore) SubmitRepairForApproval(ctx context.Context, orgID, repa
 	return err
 }
 
-func (s *postgresStore) SubmitWithdrawalForApproval(ctx context.Context, orgID, withdrawalID, userID int64) error {
-	instID, err := s.CreateApprovalInstance(ctx, orgID, "withdrawal", "withdrawal", withdrawalID, userID)
+func (s *postgresStore) SubmitWithdrawalForApproval(ctx context.Context, orgID, withdrawalID, userID int64, stepAssignees map[string]int64) error {
+	instID, err := s.createApprovalInstanceWithAssignees(ctx, orgID, "withdrawal", "withdrawal", withdrawalID, userID, stepAssignees)
 	if err != nil {
 		return err
 	}
@@ -385,8 +409,8 @@ func (s *postgresStore) SubmitWithdrawalForApproval(ctx context.Context, orgID, 
 	return err
 }
 
-func (s *postgresStore) SubmitTransferForApproval(ctx context.Context, orgID, transferID, userID int64) error {
-	instID, err := s.CreateApprovalInstance(ctx, orgID, "transfer", "transfer", transferID, userID)
+func (s *postgresStore) SubmitTransferForApproval(ctx context.Context, orgID, transferID, userID int64, stepAssignees map[string]int64) error {
+	instID, err := s.createApprovalInstanceWithAssignees(ctx, orgID, "transfer", "transfer", transferID, userID, stepAssignees)
 	if err != nil {
 		return err
 	}

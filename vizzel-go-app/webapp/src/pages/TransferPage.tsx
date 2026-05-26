@@ -23,6 +23,11 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import {
+  StepApproverFields,
+  validateStepAssignees,
+  type StepAssignees,
+} from "@/components/approval/step-approver-fields";
 
 type BuildingRow = { id: number; buildingName?: string; name?: string };
 type RoomRow = { id: number; roomName?: string; name?: string; buildingID?: number; building_id?: number };
@@ -52,6 +57,7 @@ export function TransferPage() {
   const [roomId, setRoomId] = useState("");
   const [transferType, setTransferType] = useState<"temporary" | "permanent">("temporary");
   const [reason, setReason] = useState("");
+  const [stepAssignees, setStepAssignees] = useState<StepAssignees>({});
 
   const effectiveTargetOrgId = useMemo(() => {
     if (targetOrgId) return Number(targetOrgId);
@@ -126,6 +132,11 @@ export function TransferPage() {
       toast.error("เลือกอาคารและห้องปลายทาง");
       return;
     }
+    const assigneeErr = validateStepAssignees(stepAssignees);
+    if (assigneeErr) {
+      toast.error(assigneeErr);
+      return;
+    }
     try {
       await createTransfer({
         assetId: Number(assetId),
@@ -136,6 +147,7 @@ export function TransferPage() {
         targetRoomId: Number(roomId),
         reason,
         submit: true,
+        stepAssignees,
       });
       toast.success("ส่งคำขอโอนเพื่ออนุมัติแล้ว");
       setReason("");
@@ -269,6 +281,11 @@ export function TransferPage() {
           <Label>เหตุผล</Label>
           <Input value={reason} onChange={(e) => setReason(e.target.value)} />
         </div>
+        <StepApproverFields
+          organizationID={orgID}
+          value={stepAssignees}
+          onChange={setStepAssignees}
+        />
         <Button onClick={submit}>ส่งอนุมัติ</Button>
       </div>
 

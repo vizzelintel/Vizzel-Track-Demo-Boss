@@ -166,7 +166,6 @@ export function AppSidebar({
     items: [
       { title: "โครงสร้างสินทรัพย์", url: "/assets/structure" },
       { title: "รายการสินทรัพย์", url: "/assets/list" },
-      { title: "ออกจำหน่าย", url: "/sales" },
     ],
   };
 
@@ -296,6 +295,20 @@ export function AppSidebar({
             ]
           : []),
         { title: "รายการขาเข้า", url: "/transfer/incoming" },
+      ],
+    },
+    {
+      title: "ออกจำหน่าย",
+      url: "#",
+      icon: Database,
+      disabled: !showMainSystem,
+      badge: !showMainSystem ? "Pro" : undefined,
+      items: [
+        { title: "ภาพรวม LOT", url: "/sales" },
+        { title: "ตั้งเรื่องจำหน่าย", url: "/sales/create" },
+        ...([1, 2].includes(roleID as number)
+          ? [{ title: "คิวอนุมัติ", url: "/approval-queue?workflow=disposal" }]
+          : []),
       ],
     },
     {

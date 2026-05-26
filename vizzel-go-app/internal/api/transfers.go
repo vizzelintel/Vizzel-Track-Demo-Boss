@@ -55,8 +55,9 @@ func (h *Handler) CreateTransfer(w http.ResponseWriter, r *http.Request) {
 		ToUserID             int64  `json:"toUserId"`
 		TargetBuildingID     int64  `json:"targetBuildingId"`
 		TargetRoomID         int64  `json:"targetRoomId"`
-		Reason               string `json:"reason"`
-		Submit               bool   `json:"submit"`
+		Reason               string            `json:"reason"`
+		Submit               bool              `json:"submit"`
+		StepAssignees        map[string]int64  `json:"stepAssignees"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
 	id, err := h.store.CreateTransfer(r.Context(), claims.OrganizationID, store.TransferInput{
@@ -78,7 +79,7 @@ func (h *Handler) CreateTransfer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if body.Submit {
-		_ = h.store.SubmitTransferForApproval(r.Context(), claims.OrganizationID, id, claims.UserID)
+		_ = h.store.SubmitTransferForApproval(r.Context(), claims.OrganizationID, id, claims.UserID, body.StepAssignees)
 		h.dispatchApprovalSubmitted(r, claims, "transfer", id)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]int64{"id": id}})
@@ -91,7 +92,11 @@ func (h *Handler) TransferSubmitApproval(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err := h.store.SubmitTransferForApproval(r.Context(), claims.OrganizationID, id, claims.UserID); err != nil {
+	var body struct {
+		StepAssignees map[string]int64 `json:"stepAssignees"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if err := h.store.SubmitTransferForApproval(r.Context(), claims.OrganizationID, id, claims.UserID, body.StepAssignees); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -106,7 +111,11 @@ func (h *Handler) WithdrawalSubmitApproval(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err := h.store.SubmitWithdrawalForApproval(r.Context(), claims.OrganizationID, id, claims.UserID); err != nil {
+	var body struct {
+		StepAssignees map[string]int64 `json:"stepAssignees"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if err := h.store.SubmitWithdrawalForApproval(r.Context(), claims.OrganizationID, id, claims.UserID, body.StepAssignees); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}

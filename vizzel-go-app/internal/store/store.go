@@ -73,9 +73,9 @@ type Store interface {
 	CreateWithdrawalEx(ctx context.Context, orgID int64, in WithdrawalInput) (int64, error)
 	CreateRepair(ctx context.Context, orgID int64, assetNumber, note string) (int64, error)
 	CreateRepairEx(ctx context.Context, orgID int64, in RepairInput) (int64, error)
-	SubmitRepairForApproval(ctx context.Context, orgID, repairID, userID int64) error
-	SubmitWithdrawalForApproval(ctx context.Context, orgID, withdrawalID, userID int64) error
-	SubmitTransferForApproval(ctx context.Context, orgID, transferID, userID int64) error
+	SubmitRepairForApproval(ctx context.Context, orgID, repairID, userID int64, stepAssignees map[string]int64) error
+	SubmitWithdrawalForApproval(ctx context.Context, orgID, withdrawalID, userID int64, stepAssignees map[string]int64) error
+	SubmitTransferForApproval(ctx context.Context, orgID, transferID, userID int64, stepAssignees map[string]int64) error
 	ReturnWithdrawal(ctx context.Context, orgID, id int64) error
 	ListPendingApprovals(ctx context.Context, orgID int64) ([]ApprovalInstance, error)
 	GetApprovalInstance(ctx context.Context, orgID, id int64) (*ApprovalInstance, error)
@@ -95,6 +95,7 @@ type Store interface {
 	ListApprovalDelegates(ctx context.Context, orgID int64) ([]ApprovalDelegate, error)
 	SetApprovalDelegate(ctx context.Context, orgID int64, stepKey string, userID int64) error
 	UserCanApproveStep(ctx context.Context, orgID, userID, roleID int64, stepKey string) (bool, error)
+	UserCanApproveInstanceStep(ctx context.Context, orgID, instanceID, userID, roleID int64, stepKey string) (bool, error)
 	ReturnWithdrawalWithScan(ctx context.Context, orgID, withdrawalID int64, rfids []string) error
 	ListMenuNames(ctx context.Context) (map[int]string, error)
 	OrgLimit(ctx context.Context, orgID int64, kind string) (int, error)

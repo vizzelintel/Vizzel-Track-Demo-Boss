@@ -75,7 +75,7 @@ export function ApprovalDelegatesPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">ผู้รับมอบหมายสายอนุมัติ</h1>
         <p className="text-muted-foreground text-sm">
-          กำหนดว่าใครเป็นผู้อนุมัติแต่ละขั้น (หัวหน้างาน / ผอ. / เลขา / นายก)
+          กำหนดค่าเริ่มต้นผู้อนุมัติแต่ละขั้น — ผู้ขอสามารถเลือกใหม่ได้ตอนส่งคำขอ
         </p>
       </div>
       <ul className="space-y-4">

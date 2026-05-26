@@ -132,6 +132,12 @@ const TransferIncomingPage = lazy(() =>
 const RepairWorkflowPage = lazy(() =>
   import("./pages/RepairWorkflowPage").then((m) => ({ default: m.RepairWorkflowPage })),
 );
+const SalesPage = lazy(() =>
+  import("./pages/SalesPage").then((m) => ({ default: m.SalesPage })),
+);
+const SalesCreatePage = lazy(() =>
+  import("./pages/SalesCreatePage").then((m) => ({ default: m.SalesCreatePage })),
+);
 const CentralAssetsPage = lazy(() =>
   import("./pages/CentralAssetsPage").then((m) => ({ default: m.CentralAssetsPage })),
 );
@@ -404,17 +410,17 @@ export default function App() {
         <Route
           path="/sales"
           element={
-            <EntityCrudPage
-              title="ออกจำหน่าย"
-              listEndpoint="/api/v1/sales"
-              entityKind="sales"
-              columns={[
-                { key: "title", label: "เลขครุภัณฑ์" },
-                { key: "subtitle", label: "ผู้ซื้อ" },
-                { key: "status", label: "สถานะ" },
-              ]}
-              createLabel="เพิ่มรายการจำหน่าย"
-            />
+            <Lazy>
+              <SalesPage />
+            </Lazy>
+          }
+        />
+        <Route
+          path="/sales/create"
+          element={
+            <Lazy>
+              <SalesCreatePage />
+            </Lazy>
           }
         />
         <Route path="/audit" element={<Navigate to="/audit/ongoing" replace />} />

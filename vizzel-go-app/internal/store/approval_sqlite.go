@@ -13,15 +13,15 @@ func (s *sqliteStore) CreateRepairEx(ctx context.Context, orgID int64, in Repair
 	return s.CreateRepair(ctx, orgID, in.AssetNumber, in.Note)
 }
 
-func (s *sqliteStore) SubmitRepairForApproval(ctx context.Context, orgID, repairID, userID int64) error {
+func (s *sqliteStore) SubmitRepairForApproval(ctx context.Context, orgID, repairID, userID int64, stepAssignees map[string]int64) error {
 	return fmt.Errorf("approval requires postgres")
 }
 
-func (s *sqliteStore) SubmitWithdrawalForApproval(ctx context.Context, orgID, withdrawalID, userID int64) error {
+func (s *sqliteStore) SubmitWithdrawalForApproval(ctx context.Context, orgID, withdrawalID, userID int64, stepAssignees map[string]int64) error {
 	return fmt.Errorf("approval requires postgres")
 }
 
-func (s *sqliteStore) SubmitTransferForApproval(ctx context.Context, orgID, transferID, userID int64) error {
+func (s *sqliteStore) SubmitTransferForApproval(ctx context.Context, orgID, transferID, userID int64, stepAssignees map[string]int64) error {
 	return fmt.Errorf("approval requires postgres")
 }
 
@@ -78,6 +78,10 @@ func (s *sqliteStore) SetApprovalDelegate(ctx context.Context, orgID int64, step
 }
 
 func (s *sqliteStore) UserCanApproveStep(ctx context.Context, orgID, userID, roleID int64, stepKey string) (bool, error) {
+	return CanActOnApprovalStep(roleID, stepKey), nil
+}
+
+func (s *sqliteStore) UserCanApproveInstanceStep(ctx context.Context, orgID, instanceID, userID, roleID int64, stepKey string) (bool, error) {
 	return CanActOnApprovalStep(roleID, stepKey), nil
 }
 

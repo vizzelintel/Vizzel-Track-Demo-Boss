@@ -3,6 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { completeRepair } from "@/lib/approval";
+import {
+  StepApproverFields,
+  validateStepAssignees,
+  type StepAssignees,
+} from "@/components/approval/step-approver-fields";
+import { useUser } from "@/hooks/use-user";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,10 +24,13 @@ interface RepairRow {
 }
 
 export function RepairWorkflowPage() {
+  const { user } = useUser();
+  const orgID = user?.organizationRelation?.organizationID;
   const [rows, setRows] = useState<RepairRow[]>([]);
   const [assetNumber, setAssetNumber] = useState("");
   const [symptom, setSymptom] = useState("");
   const [note, setNote] = useState("");
+  const [stepAssignees, setStepAssignees] = useState<StepAssignees>({});
 
   const load = useCallback(async () => {
     try {
@@ -41,6 +50,11 @@ export function RepairWorkflowPage() {
       toast.error("ระบุเลขครุภัณฑ์");
       return;
     }
+    const assigneeErr = validateStepAssignees(stepAssignees);
+    if (assigneeErr) {
+      toast.error(assigneeErr);
+      return;
+    }
     try {
       await apiRequest("/asset/repair/create", {
         method: "POST",
@@ -49,6 +63,7 @@ export function RepairWorkflowPage() {
           symptom,
           note,
           submit: true,
+          stepAssignees,
         }),
       });
       toast.success("ส่งแจ้งซ่อมเพื่ออนุมัติแล้ว");
@@ -93,6 +108,11 @@ export function RepairWorkflowPage() {
           <Label>หมายเหตุ</Label>
           <Input value={note} onChange={(e) => setNote(e.target.value)} />
         </div>
+        <StepApproverFields
+          organizationID={orgID}
+          value={stepAssignees}
+          onChange={setStepAssignees}
+        />
         <Button onClick={create}>ส่งอนุมัติ</Button>
       </div>
 

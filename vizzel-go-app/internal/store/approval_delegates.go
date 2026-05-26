@@ -61,6 +61,21 @@ func (s *postgresStore) UserCanApproveStep(ctx context.Context, orgID, userID, r
 	return delegateUserID == userID, nil
 }
 
+func (s *postgresStore) UserCanApproveInstanceStep(ctx context.Context, orgID, instanceID, userID, roleID int64, stepKey string) (bool, error) {
+	if !CanActOnApprovalStep(roleID, stepKey) {
+		return false, nil
+	}
+	var assigneeUserID int64
+	err := s.pool.QueryRow(ctx,
+		`SELECT assigned_user_id FROM tab_approval_instance_step WHERE instance_id = $1 AND step_key = $2`,
+		instanceID, stepKey,
+	).Scan(&assigneeUserID)
+	if err == nil {
+		return assigneeUserID == userID, nil
+	}
+	return s.UserCanApproveStep(ctx, orgID, userID, roleID, stepKey)
+}
+
 func (s *postgresStore) CreateTargetTransferApproval(ctx context.Context, targetOrgID, transferID, requestedBy int64) (int64, error) {
 	var id int64
 	err := s.pool.QueryRow(ctx,

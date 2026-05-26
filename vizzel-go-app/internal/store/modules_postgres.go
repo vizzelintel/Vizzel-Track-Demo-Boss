@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"fmt"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -104,6 +105,28 @@ func (s *postgresStore) ListAssetCategories(ctx context.Context, orgID int64) ([
 }
 
 func (s *postgresStore) ListSales(ctx context.Context, orgID int64) ([]Row, error) {
+	lots, err := s.ListDisposalLots(ctx, orgID)
+	if err != nil {
+		return nil, err
+	}
+	if len(lots) > 0 {
+		rows := make([]Row, 0, len(lots))
+		for _, lot := range lots {
+			sub := lot.Buyer
+			if lot.AssetCount > 0 {
+				sub = fmt.Sprintf("%d รายการ · %s", lot.AssetCount, lot.Buyer)
+			}
+			rows = append(rows, Row{
+				ID:        lot.ID,
+				Title:     lot.Lot,
+				Subtitle:  sub,
+				Status:    lot.Status,
+				Value:     int(lot.Amount),
+				CreatedAt: lot.CreatedAt,
+			})
+		}
+		return rows, nil
+	}
 	return s.listRowsPG(ctx, `SELECT id, asset_number, buyer, status, amount, created_at FROM sales WHERE organization_id = $1`, orgID)
 }
 

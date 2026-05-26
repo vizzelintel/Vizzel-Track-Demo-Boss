@@ -9,6 +9,7 @@ export interface ApprovalInstance {
   currentStep: number;
   currentStepKey?: string;
   currentStepLabel?: string;
+  currentStepAssigneeName?: string;
   canAct?: boolean;
   branch?: string;
   requestedBy?: number;
@@ -36,8 +37,11 @@ export function approvalAction(
   });
 }
 
-export function submitRepair(id: number) {
-  return apiRequest(`/asset/repair/submit/${id}`, { method: 'POST' });
+export function submitRepair(id: number, stepAssignees?: Record<string, number>) {
+  return apiRequest(`/asset/repair/submit/${id}`, {
+    method: 'POST',
+    body: JSON.stringify({ stepAssignees: stepAssignees ?? {} }),
+  });
 }
 
 export function completeRepair(id: number) {

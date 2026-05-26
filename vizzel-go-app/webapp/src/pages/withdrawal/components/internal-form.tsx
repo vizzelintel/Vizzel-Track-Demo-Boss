@@ -60,6 +60,11 @@ import { TEST_IDS } from "@/components/test-ids";
 import { useUser } from "@/hooks/use-user";
 import { useOrganizationUsers } from "@/hooks/use-organization-users";
 import { normalizeOrgUser } from "@/lib/org-user-normalize";
+import {
+  StepApproverFields,
+  validateStepAssignees,
+  type StepAssignees,
+} from "@/components/approval/step-approver-fields";
 
 const formSchema = z
   .object({
@@ -111,6 +116,7 @@ export function InternalForm({
   const [buildings, setBuildings] = useState<any[]>([]);
   const [allRooms, setAllRooms] = useState<any[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
+  const [stepAssignees, setStepAssignees] = useState<StepAssignees>({});
 
   const filteredAssets = assets
     .filter((asset) => {
@@ -177,6 +183,8 @@ export function InternalForm({
     setLoading(true);
     try {
       if (!values.userID) throw new Error("กรุณาเลือกผู้ทำรายการ");
+      const assigneeErr = validateStepAssignees(stepAssignees);
+      if (assigneeErr) throw new Error(assigneeErr);
 
       await createInternalWithdrawal({
         assetID: values.assetID,
@@ -188,6 +196,7 @@ export function InternalForm({
           ? values.desireReturn.toISOString()
           : undefined,
         note: values.note,
+        stepAssignees,
       });
       toast.success("บันทึกคำขอสำเร็จ");
       form.reset({
@@ -199,6 +208,7 @@ export function InternalForm({
         buildingID: "",
         roomID: "",
       });
+      setStepAssignees({});
       // Refresh asset list
       await onRefreshAssets();
     } catch (error: any) {
@@ -595,6 +605,12 @@ export function InternalForm({
               <FormMessage />
             </FormItem>
           )}
+        />
+
+        <StepApproverFields
+          organizationID={organizationID}
+          value={stepAssignees}
+          onChange={setStepAssignees}
         />
 
         <div className="pt-4">

@@ -26,7 +26,7 @@ func (h *Handler) ListPendingApprovals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for i := range list {
-		ok, _ := h.store.UserCanApproveStep(r.Context(), claims.OrganizationID, claims.UserID, claims.RoleID, list[i].CurrentStepKey)
+		ok, _ := h.store.UserCanApproveInstanceStep(r.Context(), claims.OrganizationID, list[i].ID, claims.UserID, claims.RoleID, list[i].CurrentStepKey)
 		list[i].CanAct = ok
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": list})
@@ -96,7 +96,11 @@ func (h *Handler) RepairSubmitApproval(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err := h.store.SubmitRepairForApproval(r.Context(), claims.OrganizationID, id, claims.UserID); err != nil {
+	var body struct {
+		StepAssignees map[string]int64 `json:"stepAssignees"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if err := h.store.SubmitRepairForApproval(r.Context(), claims.OrganizationID, id, claims.UserID, body.StepAssignees); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -112,10 +116,11 @@ func (h *Handler) RepairCreateWithApproval(w http.ResponseWriter, r *http.Reques
 	}
 	claims, _ := claimsFromContext(r.Context())
 	var body struct {
-		AssetNumber string `json:"assetNumber"`
-		Note        string `json:"note"`
-		Symptom     string `json:"symptom"`
-		Submit      bool   `json:"submit"`
+		AssetNumber   string            `json:"assetNumber"`
+		Note          string            `json:"note"`
+		Symptom       string            `json:"symptom"`
+		Submit        bool              `json:"submit"`
+		StepAssignees map[string]int64  `json:"stepAssignees"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
 	reqBy := int64(0)
@@ -133,7 +138,7 @@ func (h *Handler) RepairCreateWithApproval(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if body.Submit && claims != nil {
-		_ = h.store.SubmitRepairForApproval(r.Context(), orgID, id, claims.UserID)
+		_ = h.store.SubmitRepairForApproval(r.Context(), orgID, id, claims.UserID, body.StepAssignees)
 		h.dispatchApprovalSubmitted(r, claims, "repair", id)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]int64{"id": id}})

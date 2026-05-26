@@ -59,6 +59,7 @@ export function createTransfer(payload: {
   targetRoomId?: number;
   reason?: string;
   submit?: boolean;
+  stepAssignees?: Record<string, number>;
 }) {
   return apiRequest('/transfer/create', {
     method: 'POST',
