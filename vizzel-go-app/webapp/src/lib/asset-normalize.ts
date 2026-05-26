@@ -230,6 +230,17 @@ export function filterRefRows(items: unknown): Record<string, unknown>[] {
   });
 }
 
+function usersFromReference(ref: Record<string, unknown> | undefined): unknown[] {
+  if (!ref) return [];
+  const raw = ref.users;
+  if (Array.isArray(raw)) return raw;
+  if (raw && typeof raw === "object") {
+    const data = (raw as { data?: unknown }).data;
+    if (Array.isArray(data)) return data;
+  }
+  return [];
+}
+
 export function sanitizeReferenceData(ref: Record<string, unknown> | undefined) {
   const arr = (key: string) =>
     filterRefRows(Array.isArray(ref?.[key]) ? ref![key] : []);
@@ -237,9 +248,7 @@ export function sanitizeReferenceData(ref: Record<string, unknown> | undefined) 
     categories: arr("categories"),
     statuses: arr("statuses"),
     buildings: arr("buildings"),
-    users: Array.isArray(ref?.users)
-      ? filterRefRows(ref!.users)
-      : filterRefRows((ref?.users as { data?: unknown[] })?.data),
+    users: normalizeOrgUserRows(usersFromReference(ref)),
     getBy: arr("getBy"),
     sourceFund: arr("sourceFund"),
     rooms: arr("rooms"),

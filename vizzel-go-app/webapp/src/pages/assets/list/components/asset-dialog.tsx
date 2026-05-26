@@ -316,7 +316,7 @@ export function AssetDialog({
           fetcher(`/asset/category/get/1/999?organizationID=${orgID}`),
           fetcher(`/asset/status/get_all?organizationID=${orgID}`),
           fetcher(`/facility/building/get/${orgID}`),
-          fetchOrganizationUsers(orgID, 1, 999, 2),
+          fetchOrganizationUsers(orgID, 1, 999),
           fetcher(`/asset/get_by/get?organizationID=${orgID}`),
           fetcher(`/asset/source_fund/get?organizationID=${orgID}`),
           fetcher(`/organization/department/get?organizationID=${orgID}`),

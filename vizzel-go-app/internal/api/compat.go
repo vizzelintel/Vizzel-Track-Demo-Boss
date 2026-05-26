@@ -51,7 +51,7 @@ func MountProductionRoutes(r chi.Router, h *Handler) {
 	r.Patch("/asset/doc/delete", h.CompatAssetDocDelete)
 	r.Get("/asset/doc/class/doc/get/{classID}", h.CompatAssetClassDocGet)
 	r.Get("/checkJob/history/{assetID}", h.CompatCheckJobHistory)
-	r.Post("/asset/depreciation/create", h.CompatAssetDocCreate)
+	r.Post("/asset/depreciation/create", h.CompatDepreciationCreate)
 	r.Get("/warranty/initial-data/{orgID}", h.WarrantyInitialData)
 	r.Get("/warranty/summary/{orgID}", h.WarrantySummary)
 

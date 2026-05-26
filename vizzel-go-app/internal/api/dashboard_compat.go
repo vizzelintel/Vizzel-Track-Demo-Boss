@@ -311,3 +311,26 @@ func (h *Handler) CompatAssetClassDocGet(w http.ResponseWriter, r *http.Request)
 func (h *Handler) CompatCheckJobHistory(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"data": []any{}})
 }
+
+// CompatDepreciationCreate records monthly depreciation for an asset (demo: accept and ack).
+func (h *Handler) CompatDepreciationCreate(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		AssetID int64   `json:"assetID"`
+		Value   float64 `json:"value"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	if body.AssetID <= 0 {
+		writeError(w, http.StatusBadRequest, "assetID required")
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"data": map[string]any{
+			"assetID": body.AssetID,
+			"value":   body.Value,
+			"status":  "ok",
+		},
+	})
+}
