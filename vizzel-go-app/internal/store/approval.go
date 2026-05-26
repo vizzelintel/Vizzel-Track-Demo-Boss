@@ -60,6 +60,7 @@ type WithdrawalInput struct {
 	RequesterName string
 	ItemName      string
 	AssetID       int64
+	ComponentID   int64
 	UserID        int64
 	Type          string
 	DueDate       *time.Time
@@ -75,27 +76,30 @@ type RepairInput struct {
 }
 
 type TransferInput struct {
-	AssetID       int64
-	ComponentID   int64
-	TransferType  string
-	ToInstituteID int64
-	ToDeptID      int64
-	ToSectionID   int64
-	ToUserID      int64
-	Reason        string
-	RequestedBy   int64
+	AssetID              int64
+	ComponentID          int64
+	TransferType         string
+	TargetOrganizationID int64
+	ToInstituteID        int64
+	ToDeptID             int64
+	ToSectionID          int64
+	ToUserID             int64
+	Reason               string
+	RequestedBy          int64
 }
 
 type TransferRecord struct {
-	ID                 int64  `json:"id"`
-	AssetID            int64  `json:"assetId"`
-	AssetNumber        string `json:"assetNumber,omitempty"`
-	ComponentID        int64  `json:"componentId,omitempty"`
-	TransferType       string `json:"transferType"`
-	Status             string `json:"status"`
-	Reason             string `json:"reason,omitempty"`
-	ApprovalInstanceID int64  `json:"approvalInstanceId,omitempty"`
-	CreatedAt          string `json:"createdAt"`
+	ID                   int64  `json:"id"`
+	AssetID              int64  `json:"assetId"`
+	AssetNumber          string `json:"assetNumber,omitempty"`
+	ComponentID          int64  `json:"componentId,omitempty"`
+	TransferType         string `json:"transferType"`
+	Status               string `json:"status"`
+	Reason               string `json:"reason,omitempty"`
+	ApprovalInstanceID   int64  `json:"approvalInstanceId,omitempty"`
+	TargetOrganizationID int64  `json:"targetOrganizationId,omitempty"`
+	Direction            string `json:"direction,omitempty"`
+	CreatedAt            string `json:"createdAt"`
 }
 
 func (s *postgresStore) approvalEnabled(ctx context.Context) bool {
@@ -314,6 +318,14 @@ func (s *postgresStore) syncRefStatus(ctx context.Context, inst *ApprovalInstanc
 		tStatus := "rejected"
 		if approvalStatus == "approved" {
 			tStatus = "approved"
+			var srcOrg, targetOrg int64
+			_ = s.pool.QueryRow(ctx,
+				`SELECT organization_id, COALESCE(target_organization_id,0) FROM tab_asset_transfer WHERE id = $1`,
+				inst.RefID,
+			).Scan(&srcOrg, &targetOrg)
+			if targetOrg > 0 && targetOrg != srcOrg {
+				tStatus = "pending_target"
+			}
 		}
 		_, err := s.pool.Exec(ctx, `UPDATE tab_asset_transfer SET status = $2, updated_at = NOW() WHERE id = $1`, inst.RefID, tStatus)
 		return err

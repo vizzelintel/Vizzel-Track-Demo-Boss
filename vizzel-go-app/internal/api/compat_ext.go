@@ -58,6 +58,8 @@ func MountCompatExtended(r chi.Router, h *Handler) {
 	r.Get("/transfer/list", h.ListTransfers)
 	r.Post("/transfer/create", h.CreateTransfer)
 	r.Post("/transfer/submit/{id}", h.TransferSubmitApproval)
+	r.Post("/transfer/accept/{id}", h.AcceptTransferAtTarget)
+	r.Get("/organization/transfer-targets", h.ListTransferTargets)
 	r.Get("/organization/children", h.ListChildOrganizations)
 
 	// Asset LOV & repair
@@ -374,6 +376,7 @@ func (h *Handler) withdrawalRequest(w http.ResponseWriter, r *http.Request, inte
 		RequesterName string `json:"requesterName"`
 		ItemName      string `json:"itemName"`
 		AssetID       int64  `json:"assetID"`
+		ComponentID   int64  `json:"componentID"`
 		UserID        int64  `json:"userID"`
 		Type          any    `json:"type"`
 		DesireReturn  string `json:"desireReturn"`
@@ -407,6 +410,7 @@ func (h *Handler) withdrawalRequest(w http.ResponseWriter, r *http.Request, inte
 		RequesterName: body.RequesterName,
 		ItemName:      itemName,
 		AssetID:       body.AssetID,
+		ComponentID:   body.ComponentID,
 		UserID:        body.UserID,
 		Type:          wType,
 		DueDate:       due,
@@ -453,7 +457,18 @@ func (h *Handler) WithdrawalExternalRequest(w http.ResponseWriter, r *http.Reque
 
 func (h *Handler) withdrawalList(w http.ResponseWriter, r *http.Request, orgID int64) {
 	rows, _ := h.store.ListWithdrawals(r.Context(), orgID, "")
-	writeJSON(w, http.StatusOK, map[string]any{"data": rows})
+	out := make([]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, map[string]any{
+			"id":            row.ID,
+			"requesterName": row.Title,
+			"itemName":      row.Subtitle,
+			"status":        row.Status,
+			"createdAt":     row.CreatedAt,
+			"assetNumber":   row.Subtitle,
+		})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": out})
 }
 
 func (h *Handler) WithdrawalInternalGet(w http.ResponseWriter, r *http.Request) {

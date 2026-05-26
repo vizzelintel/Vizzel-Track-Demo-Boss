@@ -12,7 +12,9 @@ import {
 } from '@/components/ui/table';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { getApproveWithdrawals, WithdrawalData } from '@/lib/withdrawal';
+import { getApproveWithdrawals, returnWithdrawal, WithdrawalData } from '@/lib/withdrawal';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 import { useUser } from '@/hooks/use-user';
 import { Badge } from '@/components/ui/badge';
 import { Package, User, Calendar, Tag, ArrowRight } from 'lucide-react';
@@ -81,6 +83,9 @@ export function WithdrawalList({ initialData = [] }: WithdrawalListProps) {
             <TableHead className="py-4 text-center font-semibold text-gray-700">
               สถานะ
             </TableHead>
+            <TableHead className="py-4 text-center font-semibold text-gray-700">
+              การดำเนินการ
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -118,6 +123,7 @@ export function WithdrawalList({ initialData = [] }: WithdrawalListProps) {
             }
 
             const requester = item.requesterName || '-';
+            const rowStatus = (item as { status?: string }).status;
 
             // Status Logic
             let status = (
@@ -131,7 +137,13 @@ export function WithdrawalList({ initialData = [] }: WithdrawalListProps) {
 
             const approval = item.approveWithdrawals?.[0];
 
-            if (item.isConfirmed) {
+            if (rowStatus === 'borrowed') {
+              status = (
+                <Badge className="border-0 bg-amber-100 px-3 py-1 font-medium text-amber-800 shadow-none">
+                  อยู่ระหว่างการยืม
+                </Badge>
+              );
+            } else if (item.isConfirmed) {
               // If confirmed, check if taken
               if (approval) {
                 if (approval.isTake === 1) {
@@ -203,6 +215,24 @@ export function WithdrawalList({ initialData = [] }: WithdrawalListProps) {
                     : '-'}
                 </TableCell>
                 <TableCell className="py-4 text-center">{status}</TableCell>
+                <TableCell className="py-4 text-center">
+                  {rowStatus === 'borrowed' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          await returnWithdrawal(item.id);
+                          toast.success('บันทึกการคืนแล้ว');
+                        } catch {
+                          toast.error('คืนไม่สำเร็จ');
+                        }
+                      }}
+                    >
+                      คืนครุภัณฑ์
+                    </Button>
+                  )}
+                </TableCell>
               </TableRow>
             );
           })}

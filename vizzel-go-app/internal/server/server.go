@@ -90,6 +90,8 @@ func New(cfg config.Config, st store.Store) http.Handler {
 			r.Get("/transfers", h.ListTransfers)
 			r.Post("/transfers", h.CreateTransfer)
 			r.Post("/transfers/{id}/submit", h.TransferSubmitApproval)
+			r.Post("/transfers/{id}/accept", h.AcceptTransferAtTarget)
+			r.Get("/organization/transfer-targets", h.ListTransferTargets)
 			r.Get("/organization/children", h.ListChildOrganizations)
 			r.Get("/withdrawals", h.ListWithdrawals)
 			r.Patch("/withdrawals/{id}/status", h.PatchWithdrawalStatus)

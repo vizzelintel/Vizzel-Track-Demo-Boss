@@ -31,22 +31,24 @@ func (h *Handler) CreateTransfer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		AssetID       int64  `json:"assetId"`
-		ComponentID   int64  `json:"componentId"`
-		TransferType  string `json:"transferType"`
-		ToInstituteID int64  `json:"toInstituteId"`
-		ToDeptID      int64  `json:"toDeptId"`
-		ToSectionID   int64  `json:"toSectionId"`
-		ToUserID      int64  `json:"toUserId"`
-		Reason        string `json:"reason"`
-		Submit        bool   `json:"submit"`
+		AssetID              int64  `json:"assetId"`
+		ComponentID          int64  `json:"componentId"`
+		TransferType         string `json:"transferType"`
+		TargetOrganizationID int64  `json:"targetOrganizationId"`
+		ToInstituteID        int64  `json:"toInstituteId"`
+		ToDeptID             int64  `json:"toDeptId"`
+		ToSectionID          int64  `json:"toSectionId"`
+		ToUserID             int64  `json:"toUserId"`
+		Reason               string `json:"reason"`
+		Submit               bool   `json:"submit"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
 	id, err := h.store.CreateTransfer(r.Context(), claims.OrganizationID, store.TransferInput{
-		AssetID:       body.AssetID,
-		ComponentID:   body.ComponentID,
-		TransferType:  body.TransferType,
-		ToInstituteID: body.ToInstituteID,
+		AssetID:              body.AssetID,
+		ComponentID:          body.ComponentID,
+		TransferType:         body.TransferType,
+		TargetOrganizationID: body.TargetOrganizationID,
+		ToInstituteID:        body.ToInstituteID,
 		ToDeptID:      body.ToDeptID,
 		ToSectionID:   body.ToSectionID,
 		ToUserID:      body.ToUserID,
@@ -131,4 +133,48 @@ func (h *Handler) ListChildOrganizations(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": rows})
+}
+
+func (h *Handler) ListTransferTargets(w http.ResponseWriter, r *http.Request) {
+	claims, ok := claimsFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	rows, err := h.store.ListTransferTargets(r.Context(), claims.OrganizationID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "list failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": rows})
+}
+
+func (h *Handler) AcceptTransferAtTarget(w http.ResponseWriter, r *http.Request) {
+	claims, ok := claimsFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if claims.RoleID > 2 {
+		writeError(w, http.StatusForbidden, "admin only")
+		return
+	}
+	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err := h.store.AcceptTransferAtTarget(r.Context(), claims.OrganizationID, id); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if h.dispatcher != nil {
+		_ = h.dispatcher.Dispatch(r.Context(), notify.Event{
+			OrganizationID: claims.OrganizationID,
+			UserIDs:        []int64{claims.UserID},
+			EventType:      "transfer.accepted",
+			Title:          "รับโอนครุภัณฑ์แล้ว",
+			Body:           "คำขอโอน #" + strconv.FormatInt(id, 10),
+			Link:           "/transfer",
+			RefType:        "transfer",
+			RefID:          id,
+		})
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "completed"})
 }

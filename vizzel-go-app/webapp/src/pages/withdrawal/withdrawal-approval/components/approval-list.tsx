@@ -31,6 +31,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { ConfirmDialog } from './confirm-dialog';
+import { WithdrawalQrDialog } from '@/components/withdrawal-qr-dialog';
 import { toast } from 'sonner';
 import { TEST_IDS } from '@/components/test-ids';
 import {
@@ -50,6 +51,8 @@ export function ApprovalList({
   initialData = [],
 }: ApprovalListProps) {
   const { user } = useUser();
+  const [qrOpen, setQrOpen] = useState(false);
+  const [qrUrl, setQrUrl] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<{
     id: number;
@@ -119,10 +122,9 @@ export function ApprovalList({
         const qr = res?.data?.qrPayload;
         if (qr) {
           const url = `${window.location.origin}${qr}`;
-          toast.success('ออกของแล้ว — เปิด QR', {
-            description: url,
-            duration: 12000,
-          });
+          setQrUrl(url);
+          setQrOpen(true);
+          toast.success('ออกของแล้ว — แสดง QR');
         } else {
           toast.success('ยืนยันการรับของสำเร็จ');
         }
@@ -389,6 +391,7 @@ export function ApprovalList({
         onConfirm={handleConfirm}
         action={selectedItem?.action || 'approve'}
       />
+      <WithdrawalQrDialog open={qrOpen} onOpenChange={setQrOpen} verifyUrl={qrUrl} />
     </>
   );
 }

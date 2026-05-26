@@ -8,7 +8,14 @@ export interface TransferRecord {
   transferType: string;
   status: string;
   reason?: string;
+  targetOrganizationId?: number;
+  direction?: 'incoming' | 'outgoing';
   createdAt?: string;
+}
+
+export interface OrgTarget {
+  id: number;
+  title: string;
 }
 
 export async function listTransfers(): Promise<TransferRecord[]> {
@@ -16,10 +23,19 @@ export async function listTransfers(): Promise<TransferRecord[]> {
   return r?.data ?? [];
 }
 
+export async function listTransferTargets(): Promise<OrgTarget[]> {
+  const r = await apiRequest<{ data: OrgTarget[] }>('/organization/transfer-targets');
+  return (r?.data ?? []).map((row) => ({
+    id: row.id,
+    title: (row as { title?: string }).title ?? String(row.id),
+  }));
+}
+
 export function createTransfer(payload: {
   assetId: number;
   componentId?: number;
   transferType: 'temporary' | 'permanent';
+  targetOrganizationId?: number;
   reason?: string;
   submit?: boolean;
 }) {
@@ -29,15 +45,15 @@ export function createTransfer(payload: {
   });
 }
 
+export function acceptIncomingTransfer(id: number) {
+  return apiRequest(`/transfer/accept/${id}`, { method: 'POST' });
+}
+
 export function submitTransfer(id: number) {
   return apiRequest(`/transfer/submit/${id}`, { method: 'POST' });
 }
 
-export async function listChildOrganizations(): Promise<
-  { id: number; title: string }[]
-> {
-  const r = await apiRequest<{ data: { id: number; title: string }[] }>(
-    '/organization/children',
-  );
+export async function listChildOrganizations(): Promise<OrgTarget[]> {
+  const r = await apiRequest<{ data: OrgTarget[] }>('/organization/children');
   return r?.data ?? [];
 }

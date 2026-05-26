@@ -82,6 +82,21 @@ func (s *postgresStore) CountActiveBorrowsForAsset(ctx context.Context, orgID, a
 	return n, err
 }
 
+func (s *postgresStore) CountActiveBorrowsForRepair(ctx context.Context, orgID, assetID int64) (int, error) {
+	n, err := s.CountActiveBorrowsForAsset(ctx, orgID, assetID)
+	if err != nil || n > 0 || assetID <= 0 {
+		return n, err
+	}
+	err = s.pool.QueryRow(ctx,
+		`SELECT COUNT(*)::int FROM tab_internal_request_withdrawal w
+		 JOIN tab_asset_component c ON c.id = w.component_id AND c.asset_id = $2
+		 WHERE w.organization_id = $1 AND w.deleted_at IS NULL
+		   AND w.status IN ('approved', 'taken', 'borrowed') AND w.returned_at IS NULL`,
+		orgID, assetID,
+	).Scan(&n)
+	return n, err
+}
+
 func (s *postgresStore) CompleteRepair(ctx context.Context, orgID, repairID int64) error {
 	var assetID int64
 	var status string
@@ -98,12 +113,12 @@ func (s *postgresStore) CompleteRepair(ctx context.Context, orgID, repairID int6
 	if status != "in_progress" && status != "approved" {
 		return fmt.Errorf("repair not in progress")
 	}
-	n, err := s.CountActiveBorrowsForAsset(ctx, orgID, assetID)
+	n, err := s.CountActiveBorrowsForRepair(ctx, orgID, assetID)
 	if err != nil {
 		return err
 	}
 	if n > 0 {
-		return fmt.Errorf("ยังมีครุภัณฑ์ที่อยู่ระหว่างการยืม ไม่สามารถปิดงานซ่อมได้")
+		return fmt.Errorf("ยังมีครุภัณฑ์หรือชิ้นส่วนที่อยู่ระหว่างการยืม ไม่สามารถปิดงานซ่อมได้")
 	}
 	_, err = s.pool.Exec(ctx,
 		`UPDATE tab_asset_repair SET status = 'completed', updated_at = NOW(), return_date = CURRENT_DATE WHERE id = $1`,

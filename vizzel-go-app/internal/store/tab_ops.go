@@ -159,10 +159,10 @@ func (s *postgresStore) CreateWithdrawalEx(ctx context.Context, orgID int64, in 
 		err := s.pool.QueryRow(ctx,
 			`INSERT INTO tab_internal_request_withdrawal (
 				organization_id, requester_name, item_name, status,
-				asset_id, user_id, withdrawal_type, due_date, note
-			) VALUES ($1, $2, $3, 'draft', $4, $5, $6, $7, $8) RETURNING id`,
+				asset_id, component_id, user_id, withdrawal_type, due_date, note
+			) VALUES ($1, $2, $3, 'draft', $4, $5, $6, $7, $8, $9) RETURNING id`,
 			orgID, in.RequesterName, in.ItemName,
-			nullInt64(in.AssetID), nullInt64(in.UserID), wType, in.DueDate, in.Note,
+			nullInt64(in.AssetID), nullInt64(in.ComponentID), nullInt64(in.UserID), wType, in.DueDate, in.Note,
 		).Scan(&id)
 		return id, err
 	}

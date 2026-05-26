@@ -61,6 +61,14 @@ func (s *sqliteStore) MarkWithdrawalReminderSent(ctx context.Context, id int64) 
 	return nil
 }
 
+func (s *sqliteStore) ListTransferTargets(ctx context.Context, orgID int64) ([]Row, error) {
+	return nil, nil
+}
+
+func (s *sqliteStore) AcceptTransferAtTarget(ctx context.Context, targetOrgID, transferID int64) error {
+	return fmt.Errorf("requires postgres")
+}
+
 func (s *sqliteStore) ListTransfers(ctx context.Context, orgID int64) ([]TransferRecord, error) {
 	return nil, nil
 }

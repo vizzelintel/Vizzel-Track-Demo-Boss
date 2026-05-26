@@ -87,6 +87,8 @@ type Store interface {
 	ListTransfers(ctx context.Context, orgID int64) ([]TransferRecord, error)
 	CreateTransfer(ctx context.Context, orgID int64, in TransferInput) (int64, error)
 	ListChildOrganizations(ctx context.Context, parentID int64) ([]Row, error)
+	ListTransferTargets(ctx context.Context, orgID int64) ([]Row, error)
+	AcceptTransferAtTarget(ctx context.Context, targetOrgID, transferID int64) error
 	ListMenuNames(ctx context.Context) (map[int]string, error)
 	OrgLimit(ctx context.Context, orgID int64, kind string) (int, error)
 	ListProvinces(ctx context.Context) ([]Row, error)
