@@ -20,7 +20,7 @@ func (s *postgresStore) ListTransfers(ctx context.Context, orgID int64) ([]Trans
 		        t.created_at::text, COALESCE(t.target_organization_id,0), 'incoming'
 		 FROM tab_asset_transfer t
 		 LEFT JOIN tab_asset a ON a.id = t.asset_id
-		 WHERE t.target_organization_id = $1 AND t.status IN ('pending_target', 'pending_target_approval') AND t.deleted_at IS NULL
+		 WHERE t.target_organization_id = $2 AND t.status IN ('pending_target', 'pending_target_approval') AND t.deleted_at IS NULL
 		 ) u ORDER BY created_at DESC LIMIT 200`,
 		orgID, orgID,
 	)
