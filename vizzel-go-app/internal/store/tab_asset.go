@@ -5,12 +5,24 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 )
 
 const assetListFromTab = `
 SELECT a.id, a.organization_id, a.asset_number, a.asset_name, COALESCE(a.rfid_num, ''),
        COALESCE(cat.id, 0), COALESCE(a.asset_class_id, 0),
        COALESCE(cat.category_name, ''), COALESCE(cl.class_name, ''), COALESCE(ty.type_name, ''),
+       COALESCE(ty.id, 0),
+       COALESCE(a.asset_status_id, 0),
+       COALESCE(a.is_check, false),
+       a.received_date,
+       a.expiry_date,
+       COALESCE(a.get_by_id, 0),
+       COALESCE(a.get_from, ''),
+       COALESCE(a.source_fund_id, 0),
+       COALESCE(a.available_age, 0),
+       COALESCE(a.asset_details, ''),
+       COALESCE(o.user_id, 0),
        COALESCE(addr.building_name, ''), COALESCE(addr.room_name, ''),
        COALESCE(o.owner_name, ''), COALESCE(st.status, 'ใช้งาน'),
        COALESCE(a.asset_value, 0),
@@ -26,10 +38,33 @@ LEFT JOIN LATERAL (
     WHERE asset_id = a.id AND deleted_at IS NULL ORDER BY id LIMIT 1
 ) addr ON TRUE
 LEFT JOIN LATERAL (
-    SELECT owner_name FROM tab_asset_owner
+    SELECT owner_name, user_id FROM tab_asset_owner
     WHERE asset_id = a.id AND deleted_at IS NULL ORDER BY id LIMIT 1
 ) o ON TRUE
 `
+
+func scanAssetTabRow(sc interface {
+	Scan(dest ...any) error
+}) (Asset, error) {
+	var a Asset
+	var expiry *time.Time
+	err := sc.Scan(
+		&a.ID, &a.OrganizationID, &a.AssetNumber, &a.AssetName, &a.RFIDNum,
+		&a.CategoryID, &a.ClassID, &a.CategoryName, &a.ClassName, &a.TypeName,
+		&a.TypeID, &a.AssetStatusID, &a.IsCheck, &a.ReceivedDate, &expiry,
+		&a.GetByID, &a.GetFrom, &a.SourceFundID, &a.AvailableAge, &a.AssetDetails,
+		&a.UserID, &a.BuildingName, &a.RoomName, &a.OwnerName, &a.AssetStatusName,
+		&a.AssetValue, &a.Status, &a.CreatedAt,
+	)
+	if err != nil {
+		return Asset{}, err
+	}
+	a.ExpiryDate = expiry
+	if a.ReceivedDate.IsZero() {
+		a.ReceivedDate = a.CreatedAt
+	}
+	return a, nil
+}
 
 func (s *postgresStore) tabAssetsEnabled(ctx context.Context) bool {
 	var ok bool
@@ -96,10 +131,15 @@ func ParseAssetInputJSON(body []byte) (AssetInput, error) {
 		}
 		return 0
 	}
+	getBool := func(keys ...string) bool {
+		s := getStr(keys...)
+		return s == "true" || s == "1"
+	}
 	return AssetInput{
 		AssetNumber:     getStr("asset_number", "assetNumber"),
 		AssetName:       getStr("asset_name", "assetName"),
 		RFIDNum:         getStr("rfid_num", "rfidNum"),
+		AssetDetails:    getStr("asset_details", "assetDetails"),
 		CategoryID:      getInt("category_id", "categoryID"),
 		ClassID:         getInt("class_id", "assetClassID"),
 		CategoryName:    getStr("category_name", "categoryName"),
@@ -112,6 +152,13 @@ func ParseAssetInputJSON(body []byte) (AssetInput, error) {
 		AssetValue:      getInt("asset_value", "assetValue"),
 		AssetStatusID:   getInt("asset_status_id", "assetStatusID"),
 		UserID:          getInt("user_id", "userID"),
+		GetByID:         getInt("get_by_id", "getByID"),
+		SourceFundID:    getInt("source_fund_id", "sourceFundID"),
+		GetFrom:         getStr("get_from", "getFrom"),
+		AvailableAge:    getInt("available_age", "availableAge"),
+		ReceivedDate:    getStr("received_date", "receivedDate"),
+		ExpiryDate:      getStr("expiry_date", "expiryDate"),
+		IsCheck:         getBool("is_check", "isCheck"),
 	}, nil
 }
 
@@ -169,11 +216,8 @@ func (s *postgresStore) listAssetsTab(ctx context.Context, orgID int64, page, pa
 	defer rows.Close()
 	var data []Asset
 	for rows.Next() {
-		var a Asset
-		if err := rows.Scan(&a.ID, &a.OrganizationID, &a.AssetNumber, &a.AssetName, &a.RFIDNum,
-			&a.CategoryID, &a.ClassID, &a.CategoryName, &a.ClassName, &a.TypeName,
-			&a.BuildingName, &a.RoomName, &a.OwnerName, &a.AssetStatusName,
-			&a.AssetValue, &a.Status, &a.CreatedAt); err != nil {
+		a, err := scanAssetTabRow(rows)
+		if err != nil {
 			return nil, err
 		}
 		data = append(data, a)
@@ -202,11 +246,18 @@ func (s *postgresStore) createAssetTab(ctx context.Context, orgID int64, in Asse
 	if stID == 0 {
 		stID = s.statusIDByName(ctx, orgID, in.AssetStatusName)
 	}
+	recv := parseInputTime(in.ReceivedDate)
+	exp := parseInputTimePtr(in.ExpiryDate)
 	var id int64
 	err := s.pool.QueryRow(ctx,
-		`INSERT INTO tab_asset (asset_number, rfid_num, asset_name, asset_details, asset_class_id, asset_value, organization_id, asset_status_id, received_date, created_by)
-		 VALUES ($1,$2,$3,'',$4,$5,$6,$7,NOW(),1) RETURNING id`,
-		in.AssetNumber, nullStr(in.RFIDNum), in.AssetName, nullInt64(in.ClassID), in.AssetValue, orgID, nullInt64(stID),
+		`INSERT INTO tab_asset (
+			asset_number, rfid_num, asset_name, asset_details, asset_class_id, asset_value, organization_id,
+			asset_status_id, is_check, received_date, expiry_date, get_by_id, get_from, source_fund_id, available_age, created_by
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,1) RETURNING id`,
+		in.AssetNumber, nullStr(in.RFIDNum), in.AssetName, nullStr(in.AssetDetails),
+		nullInt64(in.ClassID), in.AssetValue, orgID, nullInt64(stID), in.IsCheck,
+		recv, exp, nullInt64(int64(in.GetByID)), nullStr(in.GetFrom),
+		nullInt64(int64(in.SourceFundID)), nullInt64(in.AvailableAge),
 	).Scan(&id)
 	if err != nil {
 		return nil, err
@@ -217,10 +268,10 @@ func (s *postgresStore) createAssetTab(ctx context.Context, orgID int64, in Asse
 			id, in.BuildingName, in.RoomName,
 		)
 	}
-	if in.OwnerName != "" {
+	if in.UserID > 0 || in.OwnerName != "" {
 		_, _ = s.pool.Exec(ctx,
-			`INSERT INTO tab_asset_owner (asset_id, owner_name, created_by) VALUES ($1,$2,1)`,
-			id, in.OwnerName,
+			`INSERT INTO tab_asset_owner (asset_id, user_id, owner_name, created_by) VALUES ($1,$2,$3,1)`,
+			id, nullInt64(in.UserID), nullStr(in.OwnerName),
 		)
 	}
 	return s.getAssetTab(ctx, orgID, id)
@@ -228,11 +279,8 @@ func (s *postgresStore) createAssetTab(ctx context.Context, orgID int64, in Asse
 
 func (s *postgresStore) getAssetTab(ctx context.Context, orgID, id int64) (*Asset, error) {
 	row := s.pool.QueryRow(ctx, assetListFromTab+` WHERE a.organization_id = $1 AND a.id = $2`, orgID, id)
-	var a Asset
-	if err := row.Scan(&a.ID, &a.OrganizationID, &a.AssetNumber, &a.AssetName, &a.RFIDNum,
-		&a.CategoryID, &a.ClassID, &a.CategoryName, &a.ClassName, &a.TypeName,
-		&a.BuildingName, &a.RoomName, &a.OwnerName, &a.AssetStatusName,
-		&a.AssetValue, &a.Status, &a.CreatedAt); err != nil {
+	a, err := scanAssetTabRow(row)
+	if err != nil {
 		return nil, err
 	}
 	return &a, nil
@@ -243,10 +291,17 @@ func (s *postgresStore) updateAssetTab(ctx context.Context, orgID, id int64, in 
 	if stID == 0 {
 		stID = s.statusIDByName(ctx, orgID, in.AssetStatusName)
 	}
+	recv := parseInputTime(in.ReceivedDate)
+	exp := parseInputTimePtr(in.ExpiryDate)
 	_, err := s.pool.Exec(ctx,
-		`UPDATE tab_asset SET asset_number=$3, rfid_num=$4, asset_name=$5, asset_class_id=$6, asset_value=$7, asset_status_id=$8, updated_at=NOW()
+		`UPDATE tab_asset SET asset_number=$3, rfid_num=$4, asset_name=$5, asset_details=$6, asset_class_id=$7,
+		 asset_value=$8, asset_status_id=$9, is_check=$10, received_date=$11, expiry_date=$12,
+		 get_by_id=$13, get_from=$14, source_fund_id=$15, available_age=$16, updated_at=NOW()
 		 WHERE id=$1 AND organization_id=$2`,
-		id, orgID, in.AssetNumber, nullStr(in.RFIDNum), in.AssetName, nullInt64(in.ClassID), in.AssetValue, nullInt64(stID),
+		id, orgID, in.AssetNumber, nullStr(in.RFIDNum), in.AssetName, nullStr(in.AssetDetails),
+		nullInt64(in.ClassID), in.AssetValue, nullInt64(stID), in.IsCheck,
+		recv, exp, nullInt64(int64(in.GetByID)), nullStr(in.GetFrom),
+		nullInt64(int64(in.SourceFundID)), nullInt64(in.AvailableAge),
 	)
 	if err != nil {
 		return err
@@ -259,11 +314,37 @@ func (s *postgresStore) updateAssetTab(ctx context.Context, orgID, id int64, in 
 		)
 	}
 	_, _ = s.pool.Exec(ctx, `DELETE FROM tab_asset_owner WHERE asset_id=$1`, id)
-	if in.OwnerName != "" {
+	if in.UserID > 0 || in.OwnerName != "" {
 		_, _ = s.pool.Exec(ctx,
-			`INSERT INTO tab_asset_owner (asset_id, owner_name, created_by) VALUES ($1,$2,1)`,
-			id, in.OwnerName,
+			`INSERT INTO tab_asset_owner (asset_id, user_id, owner_name, created_by) VALUES ($1,$2,$3,1)`,
+			id, nullInt64(in.UserID), nullStr(in.OwnerName),
 		)
+	}
+	return nil
+}
+
+func parseInputTime(s string) time.Time {
+	if s == "" {
+		return time.Now()
+	}
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		return t
+	}
+	if t, err := time.Parse("2006-01-02", s); err == nil {
+		return t
+	}
+	return time.Now()
+}
+
+func parseInputTimePtr(s string) *time.Time {
+	if s == "" {
+		return nil
+	}
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		return &t
+	}
+	if t, err := time.Parse("2006-01-02", s); err == nil {
+		return &t
 	}
 	return nil
 }

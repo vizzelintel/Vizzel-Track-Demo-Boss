@@ -2,13 +2,14 @@ package api
 
 import (
 	"strings"
+	"time"
 
 	"github.com/vizzelintel/vizzel-track-demo-boss/vizzel-go-app/internal/store"
 )
 
 func toCompatAsset(a store.Asset) map[string]any {
 	users := []any{}
-	if a.OwnerName != "" {
+	if a.UserID > 0 || a.OwnerName != "" {
 		parts := strings.Fields(a.OwnerName)
 		name := a.OwnerName
 		surname := ""
@@ -17,10 +18,18 @@ func toCompatAsset(a store.Asset) map[string]any {
 			surname = strings.Join(parts[1:], " ")
 		}
 		users = append(users, map[string]any{
-			"id":      0,
+			"id":      a.UserID,
 			"name":    name,
 			"surname": surname,
 		})
+	}
+	recv := a.ReceivedDate
+	if recv.IsZero() {
+		recv = a.CreatedAt
+	}
+	var expiry any
+	if a.ExpiryDate != nil {
+		expiry = a.ExpiryDate.Format(time.RFC3339)
 	}
 	return map[string]any{
 		"id":              a.ID,
@@ -28,8 +37,8 @@ func toCompatAsset(a store.Asset) map[string]any {
 		"assetNumber":     a.AssetNumber,
 		"rfidNum":         a.RFIDNum,
 		"assetValue":      a.AssetValue,
-		"isCheck":         false,
-		"assetStatusID":   nil,
+		"isCheck":         a.IsCheck,
+		"assetStatusID":   a.AssetStatusID,
 		"assetStatusName": a.AssetStatusName,
 		"image":           nil,
 		"images":          []any{},
@@ -38,13 +47,17 @@ func toCompatAsset(a store.Asset) map[string]any {
 		"buildingName":    a.BuildingName,
 		"assetClassID":    a.ClassID,
 		"className":       a.ClassName,
-		"typeID":          a.CategoryID,
+		"typeID":          a.TypeID,
 		"typeName":        a.TypeName,
 		"categoryID":      a.CategoryID,
 		"categoryName":    a.CategoryName,
-		"receivedDate":    a.CreatedAt.Format("2006-01-02"),
-		"expiryDate":      nil,
-		"assetDetail":     "",
+		"receivedDate":    recv.Format(time.RFC3339),
+		"expiryDate":      expiry,
+		"assetDetail":     a.AssetDetails,
+		"getByID":         a.GetByID,
+		"sourceFundID":    a.SourceFundID,
+		"getFrom":         a.GetFrom,
+		"availableAge":    a.AvailableAge,
 		"users":           users,
 	}
 }

@@ -4,6 +4,7 @@ type AssetInput struct {
 	AssetNumber     string `json:"asset_number"`
 	AssetName       string `json:"asset_name"`
 	RFIDNum         string `json:"rfid_num"`
+	AssetDetails    string `json:"asset_details"`
 	CategoryID      int64  `json:"category_id"`
 	ClassID         int64  `json:"class_id"`
 	CategoryName    string `json:"category_name"`
@@ -14,6 +15,13 @@ type AssetInput struct {
 	OwnerName       string `json:"owner_name"`
 	AssetStatusName string `json:"asset_status_name"`
 	AssetStatusID   int64  `json:"asset_status_id"`
+	IsCheck         bool   `json:"is_check"`
+	ReceivedDate    string `json:"received_date"`
+	ExpiryDate      string `json:"expiry_date"`
+	GetByID         int64  `json:"get_by_id"`
+	GetFrom         string `json:"get_from"`
+	SourceFundID    int64  `json:"source_fund_id"`
+	AvailableAge    int64  `json:"available_age"`
 	AssetValue      int64  `json:"asset_value"`
 	UserID          int64  `json:"user_id"`
 }

@@ -71,6 +71,7 @@ export interface AssetData {
   // New Fields
   getBy?: string | null;
   getByID?: number | null;
+  getFrom?: string | null;
   sourceFund?: string | null;
   sourceFundID?: number | null;
 

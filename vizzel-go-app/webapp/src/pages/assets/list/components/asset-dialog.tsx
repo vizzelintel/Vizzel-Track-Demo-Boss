@@ -70,11 +70,17 @@ import {
   filterRefRows,
   lovOptionLabel,
   normalizeOrgUserRows,
+  normalizeAssetRow,
 } from "@/lib/asset-normalize";
 import {
   assetImageUrl,
   resolveHolderOrgLabels,
 } from "@/lib/org-hierarchy";
+import {
+  parseAssetDate,
+  resolveHolderUserId,
+  resolveLovSelectValue,
+} from "@/lib/asset-form-resolve";
 
 interface AssetDialogProps {
   open: boolean;
@@ -425,54 +431,64 @@ export function AssetDialog({
       const orgID = user?.organizationRelation?.organizationID;
 
       const loadEditData = async () => {
-        // ... form.reset ...
+        let asset = initialData as import("../types").AssetData;
+        try {
+          const one = await apiRequest<{ data?: unknown }>(
+            `/asset/get_one/${initialData.id}`,
+          );
+          const row = normalizeAssetRow(one?.data ?? one);
+          if (row) asset = row;
+        } catch {
+          /* use list row */
+        }
+
+        const holders = normalizeOrgUserRows(usersList);
+        const getByOpts = filterRefRows(getByOptions);
+        const fundOpts = filterRefRows(sourceFundOptions);
+
         form.reset({
-          assetName: initialData.assetName,
-          assetDetails: initialData.assetDetail || "",
-          assetValue: Number(initialData.assetValue),
-          assetNumber: initialData.assetNumber,
-          rfidNum: initialData.rfidNum || "",
-          getBy: String(initialData.getByID || initialData.getBy || ""),
-          getFrom: initialData.getFrom || "",
-          sourceFund: String(
-            initialData.sourceFundID || initialData.sourceFund || "",
+          assetName: asset.assetName,
+          assetDetails: asset.assetDetail || "",
+          assetValue: Number(asset.assetValue),
+          assetNumber: asset.assetNumber,
+          rfidNum: asset.rfidNum || "",
+          getBy: resolveLovSelectValue(
+            asset.getByID,
+            asset.getBy,
+            getByOpts,
           ),
-          isCheck: initialData.isCheck,
-          receivedDate: new Date(initialData.receivedDate),
-          expiryDate: initialData.expiryDate
-            ? new Date(initialData.expiryDate)
-            : undefined,
-          assetStatusID: initialData.assetStatusID
-            ? String(initialData.assetStatusID)
+          getFrom: asset.getFrom || "",
+          sourceFund: resolveLovSelectValue(
+            asset.sourceFundID,
+            asset.sourceFund,
+            fundOpts,
+          ),
+          isCheck: Boolean(asset.isCheck),
+          receivedDate: parseAssetDate(asset.receivedDate) ?? new Date(),
+          expiryDate: parseAssetDate(asset.expiryDate ?? undefined),
+          assetStatusID: asset.assetStatusID
+            ? String(asset.assetStatusID)
             : "",
 
-          categoryID: String(initialData.categoryID || ""),
-          typeID: String(initialData.typeID || ""),
-          assetClassID: String(initialData.assetClassID || ""),
+          categoryID: String(asset.categoryID || ""),
+          typeID: String(asset.typeID || ""),
+          assetClassID: String(asset.assetClassID || ""),
 
-          buildingID: initialData.buildingID
-            ? String(initialData.buildingID)
-            : "",
-          roomID: initialData.roomID ? String(initialData.roomID) : "",
+          buildingID: asset.buildingID ? String(asset.buildingID) : "",
+          roomID: asset.roomID ? String(asset.roomID) : "",
 
-          userID:
-            initialData.users && initialData.users.length > 0
-              ? String(initialData.users[0].id)
-              : "",
+          userID: resolveHolderUserId(asset, holders),
           images: undefined,
-          // Load Depreciation from DB (depreciation_value holds the monthly calculate from backend)
           depreciationValue:
-            initialData.depreciation_value !== undefined &&
-            initialData.depreciation_value !== null
-              ? Number(initialData.depreciation_value)
-              : initialData.depreciationValue !== undefined
-                ? Number(initialData.depreciationValue)
-                : initialData.currentValue !== undefined
-                  ? Number(initialData.currentValue)
-                  : 0,
-          availableAge: initialData.availableAge
-            ? Number(initialData.availableAge)
-            : 0,
+            asset.depreciation_value != null
+              ? Number(asset.depreciation_value)
+              : asset.currentValue != null
+                ? Number(asset.currentValue)
+                : 0,
+          availableAge:
+            asset.availableAge != null && asset.availableAge > 0
+              ? Number(asset.availableAge)
+              : 0,
         });
 
         // Load Dependent Dropdowns
@@ -484,31 +500,31 @@ export function AssetDialog({
           // We rely purely on allRooms filtering below
         } else {
           // Fallback to existing fetch logic if no preloaded data
-          if (initialData.categoryID && orgID) {
+          if (asset.categoryID && orgID) {
             const typesData = await fetcher(
-              `/asset/type/get_all?organizationID=${orgID}&categoryID=${initialData.categoryID}`,
+              `/asset/type/get_all?organizationID=${orgID}&categoryID=${asset.categoryID}`,
             );
             setTypes(filterRefRows(typesData));
           }
-          if (initialData.typeID && orgID) {
+          if (asset.typeID && orgID) {
             const classesData = await fetcher(
-              `/asset/class/get_all?organizationID=${orgID}&typeID=${initialData.typeID}`,
+              `/asset/class/get_all?organizationID=${orgID}&typeID=${asset.typeID}`,
             );
             setClasses(filterRefRows(classesData));
           }
         }
 
         // Load Rooms if building exists (Instant filtering)
-        if (initialData.buildingID) {
+        if (asset.buildingID) {
           const filtered = allRooms.filter(
-            (r: any) => String(r.buildingID) === String(initialData.buildingID),
+            (r: any) => String(r.buildingID) === String(asset.buildingID),
           );
           setRooms(filtered);
         }
 
         // Images Preview
-        if (initialData.images && initialData.images.length > 0) {
-          const existingImages = initialData.images.map((img: any) => {
+        if (asset.images && asset.images.length > 0) {
+          const existingImages = asset.images.map((img: any) => {
             // Handle both string and object formats temporarily
             const path = typeof img === "string" ? img : img.image || img.url;
             const id = typeof img === "object" ? img.id : undefined;
@@ -556,7 +572,17 @@ export function AssetDialog({
       setClasses([]);
       setRooms([]);
     }
-  }, [initialData, open, user, form, preloadedDependencies, allRooms]);
+  }, [
+    initialData,
+    open,
+    user,
+    form,
+    preloadedDependencies,
+    allRooms,
+    usersList,
+    getByOptions,
+    sourceFundOptions,
+  ]);
 
   // --- Submit Handler ---
   const onSubmit = async (values: AssetFormValues) => {

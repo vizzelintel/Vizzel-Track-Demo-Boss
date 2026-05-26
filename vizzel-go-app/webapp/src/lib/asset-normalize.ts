@@ -80,6 +80,7 @@ export function normalizeAssetRow(raw: unknown): AssetData | null {
     categoryName: String(r.categoryName ?? r.category_name ?? "—"),
     getBy: r.getBy != null ? String(r.getBy) : null,
     getByID: r.getByID != null ? Number(r.getByID) : null,
+    getFrom: r.getFrom != null ? String(r.getFrom) : null,
     sourceFund: r.sourceFund != null ? String(r.sourceFund) : null,
     sourceFundID: r.sourceFundID != null ? Number(r.sourceFundID) : null,
     buildingID: r.buildingID != null ? Number(r.buildingID) : null,

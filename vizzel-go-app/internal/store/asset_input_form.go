@@ -45,10 +45,12 @@ func ParseAssetInputForm(r *http.Request) (AssetInput, error) {
 	}
 	statusName := get("assetStatusName", "asset_status_name")
 	statusID := parseInt("assetStatusID", "asset_status_id")
+	isCheck := get("isCheck", "is_check")
 	return AssetInput{
 		AssetNumber:     get("assetNumber", "asset_number"),
 		AssetName:       get("assetName", "asset_name"),
 		RFIDNum:         get("rfidNum", "rfid_num"),
+		AssetDetails:    get("assetDetails", "asset_details"),
 		CategoryID:      parseInt("categoryID", "category_id"),
 		ClassID:         parseInt("assetClassID", "class_id", "asset_class_id"),
 		CategoryName:    get("categoryName", "category_name"),
@@ -59,6 +61,13 @@ func ParseAssetInputForm(r *http.Request) (AssetInput, error) {
 		OwnerName:       get("ownerName", "owner_name"),
 		AssetStatusName: statusName,
 		AssetStatusID:   statusID,
+		IsCheck:         isCheck == "true" || isCheck == "1",
+		ReceivedDate:    get("receivedDate", "received_date"),
+		ExpiryDate:      get("expiryDate", "expiry_date"),
+		GetByID:         parseInt("getByID", "get_by_id"),
+		GetFrom:         get("getFrom", "get_from"),
+		SourceFundID:    parseInt("sourceFundID", "source_fund_id"),
+		AvailableAge:    parseInt("availableAge", "available_age"),
 		AssetValue:      parseInt("assetValue", "asset_value"),
 		UserID:          parseInt("userID", "user_id"),
 	}, nil
