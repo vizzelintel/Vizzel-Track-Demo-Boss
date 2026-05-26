@@ -69,6 +69,22 @@ func (s *sqliteStore) AcceptTransferAtTarget(ctx context.Context, targetOrgID, t
 	return fmt.Errorf("requires postgres")
 }
 
+func (s *sqliteStore) ListApprovalDelegates(ctx context.Context, orgID int64) ([]ApprovalDelegate, error) {
+	return nil, nil
+}
+
+func (s *sqliteStore) SetApprovalDelegate(ctx context.Context, orgID int64, stepKey string, userID int64) error {
+	return fmt.Errorf("requires postgres")
+}
+
+func (s *sqliteStore) UserCanApproveStep(ctx context.Context, orgID, userID, roleID int64, stepKey string) (bool, error) {
+	return CanActOnApprovalStep(roleID, stepKey), nil
+}
+
+func (s *sqliteStore) ReturnWithdrawalWithScan(ctx context.Context, orgID, withdrawalID int64, rfids []string) error {
+	return s.ReturnWithdrawal(ctx, orgID, withdrawalID)
+}
+
 func (s *sqliteStore) ListTransfers(ctx context.Context, orgID int64) ([]TransferRecord, error) {
 	return nil, nil
 }

@@ -20,7 +20,7 @@ func (s *postgresStore) ListTransfers(ctx context.Context, orgID int64) ([]Trans
 		        t.created_at::text, COALESCE(t.target_organization_id,0), 'incoming'
 		 FROM tab_asset_transfer t
 		 LEFT JOIN tab_asset a ON a.id = t.asset_id
-		 WHERE t.target_organization_id = $1 AND t.status = 'pending_target' AND t.deleted_at IS NULL
+		 WHERE t.target_organization_id = $1 AND t.status IN ('pending_target', 'pending_target_approval') AND t.deleted_at IS NULL
 		 ) u ORDER BY created_at DESC LIMIT 200`,
 		orgID, orgID,
 	)
@@ -61,7 +61,8 @@ func (s *postgresStore) AcceptTransferAtTarget(ctx context.Context, targetOrgID,
 	var assetID int64
 	err := s.pool.QueryRow(ctx,
 		`SELECT transfer_type, asset_id FROM tab_asset_transfer
-		 WHERE id = $1 AND target_organization_id = $2 AND status = 'pending_target' AND deleted_at IS NULL`,
+		 WHERE id = $1 AND target_organization_id = $2
+		   AND status IN ('pending_target', 'pending_target_approval') AND deleted_at IS NULL`,
 		transferID, targetOrgID,
 	).Scan(&transferType, &assetID)
 	if err != nil {

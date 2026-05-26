@@ -112,6 +112,11 @@ const NotificationChannelsPage = lazy(() =>
     default: m.NotificationChannelsPage,
   })),
 );
+const ApprovalDelegatesPage = lazy(() =>
+  import("./pages/settings/ApprovalDelegatesPage").then((m) => ({
+    default: m.ApprovalDelegatesPage,
+  })),
+);
 const ApprovalQueuePage = lazy(() =>
   import("./pages/ApprovalQueuePage").then((m) => ({ default: m.ApprovalQueuePage })),
 );
@@ -530,6 +535,14 @@ export default function App() {
           element={
             <Lazy>
               <NotificationChannelsPage />
+            </Lazy>
+          }
+        />
+        <Route
+          path="/settings/approval-delegates"
+          element={
+            <Lazy>
+              <ApprovalDelegatesPage />
             </Lazy>
           }
         />

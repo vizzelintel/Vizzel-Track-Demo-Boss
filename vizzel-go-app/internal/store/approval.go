@@ -247,8 +247,12 @@ func (s *postgresStore) ApprovalAction(ctx context.Context, orgID, instanceID, a
 	if current.StepKey == "" {
 		return fmt.Errorf("invalid step")
 	}
-	if !CanActOnApprovalStep(actorRoleID, current.StepKey) {
-		return fmt.Errorf("ไม่มีสิทธิ์อนุมัติขั้นตอน %s", stepLabelFor(current.StepKey))
+	ok, err := s.UserCanApproveStep(ctx, orgID, actorUserID, actorRoleID, current.StepKey)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("ไม่มีสิทธิ์อนุมัติขั้นตอน %s (ไม่ใช่ผู้รับมอบหมาย)", stepLabelFor(current.StepKey))
 	}
 	_, err = s.pool.Exec(ctx,
 		`INSERT INTO tab_approval_step_log (instance_id, step_order, step_key, actor_user_id, action, branch, note)
@@ -315,6 +319,13 @@ func (s *postgresStore) syncRefStatus(ctx context.Context, inst *ApprovalInstanc
 		)
 		return err
 	case "transfer":
+		if inst.WorkflowCode == "transfer_receive" {
+			if approvalStatus == "approved" {
+				return s.AcceptTransferAtTarget(ctx, inst.OrganizationID, inst.RefID)
+			}
+			_, err := s.pool.Exec(ctx, `UPDATE tab_asset_transfer SET status = 'rejected', updated_at = NOW() WHERE id = $1`, inst.RefID)
+			return err
+		}
 		tStatus := "rejected"
 		if approvalStatus == "approved" {
 			tStatus = "approved"
@@ -324,7 +335,8 @@ func (s *postgresStore) syncRefStatus(ctx context.Context, inst *ApprovalInstanc
 				inst.RefID,
 			).Scan(&srcOrg, &targetOrg)
 			if targetOrg > 0 && targetOrg != srcOrg {
-				tStatus = "pending_target"
+				_, _ = s.CreateTargetTransferApproval(ctx, targetOrg, inst.RefID, inst.RequestedBy)
+				return nil
 			}
 		}
 		_, err := s.pool.Exec(ctx, `UPDATE tab_asset_transfer SET status = $2, updated_at = NOW() WHERE id = $1`, inst.RefID, tStatus)

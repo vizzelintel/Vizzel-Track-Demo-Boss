@@ -89,6 +89,10 @@ type Store interface {
 	ListChildOrganizations(ctx context.Context, parentID int64) ([]Row, error)
 	ListTransferTargets(ctx context.Context, orgID int64) ([]Row, error)
 	AcceptTransferAtTarget(ctx context.Context, targetOrgID, transferID int64) error
+	ListApprovalDelegates(ctx context.Context, orgID int64) ([]ApprovalDelegate, error)
+	SetApprovalDelegate(ctx context.Context, orgID int64, stepKey string, userID int64) error
+	UserCanApproveStep(ctx context.Context, orgID, userID, roleID int64, stepKey string) (bool, error)
+	ReturnWithdrawalWithScan(ctx context.Context, orgID, withdrawalID int64, rfids []string) error
 	ListMenuNames(ctx context.Context) (map[int]string, error)
 	OrgLimit(ctx context.Context, orgID int64, kind string) (int, error)
 	ListProvinces(ctx context.Context) ([]Row, error)

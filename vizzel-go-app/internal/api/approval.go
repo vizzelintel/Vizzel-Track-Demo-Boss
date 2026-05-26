@@ -26,7 +26,8 @@ func (h *Handler) ListPendingApprovals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for i := range list {
-		list[i].CanAct = store.CanActOnApprovalStep(claims.RoleID, list[i].CurrentStepKey)
+		ok, _ := h.store.UserCanApproveStep(r.Context(), claims.OrganizationID, claims.UserID, claims.RoleID, list[i].CurrentStepKey)
+		list[i].CanAct = ok
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": list})
 }

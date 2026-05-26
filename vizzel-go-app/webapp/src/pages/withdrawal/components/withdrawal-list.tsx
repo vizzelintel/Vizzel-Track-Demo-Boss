@@ -12,9 +12,10 @@ import {
 } from '@/components/ui/table';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { getApproveWithdrawals, returnWithdrawal, WithdrawalData } from '@/lib/withdrawal';
+import { getApproveWithdrawals, WithdrawalData } from '@/lib/withdrawal';
 import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
+import { WithdrawalReturnScanDialog } from '@/components/withdrawal-return-scan-dialog';
+import { useState } from 'react';
 import { useUser } from '@/hooks/use-user';
 import { Badge } from '@/components/ui/badge';
 import { Package, User, Calendar, Tag, ArrowRight } from 'lucide-react';
@@ -25,8 +26,9 @@ interface WithdrawalListProps {
 
 export function WithdrawalList({ initialData = [] }: WithdrawalListProps) {
   const { user } = useUser();
+  const [returnId, setReturnId] = useState<number | null>(null);
 
-  const { data: res, isLoading } = useSWR(
+  const { data: res, isLoading, mutate } = useSWR(
     user?.organizationRelation?.organizationID
       ? [`/withdrawal/history`, user.organizationRelation.organizationID]
       : null,
@@ -217,19 +219,8 @@ export function WithdrawalList({ initialData = [] }: WithdrawalListProps) {
                 <TableCell className="py-4 text-center">{status}</TableCell>
                 <TableCell className="py-4 text-center">
                   {rowStatus === 'borrowed' && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={async () => {
-                        try {
-                          await returnWithdrawal(item.id);
-                          toast.success('บันทึกการคืนแล้ว');
-                        } catch {
-                          toast.error('คืนไม่สำเร็จ');
-                        }
-                      }}
-                    >
-                      คืนครุภัณฑ์
+                    <Button size="sm" variant="outline" onClick={() => setReturnId(item.id)}>
+                      คืน (สแกน RFID)
                     </Button>
                   )}
                 </TableCell>
@@ -238,6 +229,17 @@ export function WithdrawalList({ initialData = [] }: WithdrawalListProps) {
           })}
         </TableBody>
       </Table>
+      {returnId != null && (
+        <WithdrawalReturnScanDialog
+          open={returnId != null}
+          onOpenChange={(o) => !o && setReturnId(null)}
+          withdrawalId={returnId}
+          onDone={() => {
+            setReturnId(null);
+            void mutate();
+          }}
+        />
+      )}
     </div>
   );
 }

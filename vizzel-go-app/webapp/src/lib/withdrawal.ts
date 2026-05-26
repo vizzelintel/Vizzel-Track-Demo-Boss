@@ -121,3 +121,10 @@ export function issueWithdrawal(id: number) {
 export function returnWithdrawal(id: number) {
   return apiRequest(`/withdrawal/${id}/return`, { method: 'POST' });
 }
+
+export function returnWithdrawalWithScan(id: number, rfids: string[]) {
+  return apiRequest(`/withdrawal/${id}/return-scan`, {
+    method: 'POST',
+    body: JSON.stringify({ rfids }),
+  });
+}

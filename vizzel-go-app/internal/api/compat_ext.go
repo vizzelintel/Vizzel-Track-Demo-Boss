@@ -49,6 +49,9 @@ func MountCompatExtended(r chi.Router, h *Handler) {
 	r.Post("/withdrawal/take/{approveID}", h.WithdrawalTake)
 	r.Post("/withdrawal/{id}/submit", h.WithdrawalSubmitApproval)
 	r.Post("/withdrawal/{id}/return", h.WithdrawalReturn)
+	r.Post("/withdrawal/{id}/return-scan", h.WithdrawalReturnScan)
+	r.Get("/approval/delegates", h.ListApprovalDelegates)
+	r.Post("/approval/delegates", h.SetApprovalDelegate)
 	r.Get("/withdrawal/get/{orgID}", h.WithdrawalGet)
 	r.Get("/withdrawal/get/detail/{withdrawalID}", h.WithdrawalDetail)
 

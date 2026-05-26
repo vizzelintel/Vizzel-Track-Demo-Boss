@@ -11,7 +11,8 @@ import { toast } from "sonner";
 const workflowLabels: Record<string, string> = {
   repair: "แจ้งซ่อม",
   withdrawal: "เบิก-ยืม",
-  transfer: "โอนย้าย",
+  transfer: "โอนย้าย (ต้นทาง)",
+  transfer_receive: "รับโอน (ปลายทาง)",
 };
 
 export function ApprovalQueuePage() {

@@ -107,6 +107,36 @@ func (h *Handler) WithdrawalSubmitApproval(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, http.StatusOK, map[string]string{"status": "pending_approval"})
 }
 
+func (h *Handler) WithdrawalReturnScan(w http.ResponseWriter, r *http.Request) {
+	claims, ok := claimsFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	var body struct {
+		RFIDs []string `json:"rfids"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if err := h.store.ReturnWithdrawalWithScan(r.Context(), claims.OrganizationID, id, body.RFIDs); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if h.dispatcher != nil {
+		_ = h.dispatcher.Dispatch(r.Context(), notify.Event{
+			OrganizationID: claims.OrganizationID,
+			UserIDs:        []int64{claims.UserID},
+			EventType:      "withdrawal.returned",
+			Title:          "คืนครุภัณฑ์แล้ว",
+			Body:           "ตรวจรับคืนครบ RFID แล้ว",
+			Link:           "/withdrawal",
+			RefType:        "withdrawal",
+			RefID:          id,
+		})
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "returned"})
+}
+
 func (h *Handler) WithdrawalReturn(w http.ResponseWriter, r *http.Request) {
 	claims, ok := claimsFromContext(r.Context())
 	if !ok {
@@ -119,6 +149,38 @@ func (h *Handler) WithdrawalReturn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "returned"})
+}
+
+func (h *Handler) ListApprovalDelegates(w http.ResponseWriter, r *http.Request) {
+	claims, ok := claimsFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	list, err := h.store.ListApprovalDelegates(r.Context(), claims.OrganizationID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "list failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": list})
+}
+
+func (h *Handler) SetApprovalDelegate(w http.ResponseWriter, r *http.Request) {
+	claims, ok := claimsFromContext(r.Context())
+	if !ok || claims.RoleID > 2 {
+		writeError(w, http.StatusForbidden, "admin only")
+		return
+	}
+	var body struct {
+		StepKey string `json:"stepKey"`
+		UserID  int64  `json:"userId"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if err := h.store.SetApprovalDelegate(r.Context(), claims.OrganizationID, body.StepKey, body.UserID); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 func (h *Handler) ListChildOrganizations(w http.ResponseWriter, r *http.Request) {

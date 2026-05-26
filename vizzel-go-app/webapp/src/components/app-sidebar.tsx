@@ -149,6 +149,7 @@ export function AppSidebar({
       { title: "ข้อมูลองค์กรและสถานที่", url: "/organization" },
       { title: "จัดการโครงสร้างองค์กร", url: "/organization-structure" },
       { title: "ตั้งค่าการแจ้งเตือน", url: "/settings/notifications" },
+      { title: "ผู้อนุมัติตามขั้น", url: "/settings/approval-delegates" },
     ],
   };
 

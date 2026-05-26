@@ -176,9 +176,12 @@ export function TransferPage() {
                 </span>
                 <div className="flex items-center gap-2">
                   <Badge variant="secondary">{r.status}</Badge>
+                  {r.status === "pending_target_approval" && (
+                    <span className="text-muted-foreground text-xs">รออนุมัติที่คิวอนุมัติ</span>
+                  )}
                   {r.status === "pending_target" && roleID <= 2 && (
                     <Button size="sm" onClick={() => accept(r.id)}>
-                      รับโอน
+                      รับโอน (ยืนยัน)
                     </Button>
                   )}
                 </div>
