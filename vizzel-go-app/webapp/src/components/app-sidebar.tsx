@@ -257,6 +257,7 @@ export function AppSidebar({
 
   const showDocuments = hasMenu(2);
   const showWithdrawal = hasMenu(3); // 🌟 Borrow-Return System (ID 3)
+  const showMainSystem = hasMenu(1);
 
   // 🌟 Organization Specific Items
   let orgSpecificItems: NavMainItem[] = [
@@ -316,8 +317,6 @@ export function AppSidebar({
   } else {
     // Logic for Borrow-Return visibility if needed, currently enabled for non-role 4
   }
-
-  const showMainSystem = hasMenu(1);
 
   return (
     <>
