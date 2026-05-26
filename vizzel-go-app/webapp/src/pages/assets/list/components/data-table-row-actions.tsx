@@ -16,6 +16,7 @@ import {
 
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import { TEST_IDS } from '@/components/test-ids';
+import { usePermissions } from '@/hooks/use-permissions';
 
 import { z } from 'zod';
 import { useState } from 'react';
@@ -72,6 +73,9 @@ export function DataTableRowActions<TData>({
   onDuplicate,
   onDelete,
 }: DataTableRowActionsProps<TData>) {
+  const { can } = usePermissions();
+  const canEdit = can('assets', 'edit');
+  const canDelete = can('assets', 'delete');
   const original = row.original;
   if (original == null || typeof original !== "object") {
     return null;
@@ -108,15 +112,19 @@ export function DataTableRowActions<TData>({
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="end" className="w-[200px]">
-          <DropdownMenuItem onClick={() => onEdit?.(asset)} data-testid={TEST_IDS.ASSET.BUTTON_ROW_EDIT(asset.id)}>
-            แก้ไข
-          </DropdownMenuItem>
+          {canEdit && (
+            <DropdownMenuItem onClick={() => onEdit?.(asset)} data-testid={TEST_IDS.ASSET.BUTTON_ROW_EDIT(asset.id)}>
+              แก้ไข
+            </DropdownMenuItem>
+          )}
 
-          <DropdownMenuItem onClick={() => onDuplicate?.(asset)} data-testid={TEST_IDS.ASSET.BUTTON_ROW_DUPLICATE(asset.id)}>
-            ทำสำเนา
-          </DropdownMenuItem>
+          {canEdit && (
+            <DropdownMenuItem onClick={() => onDuplicate?.(asset)} data-testid={TEST_IDS.ASSET.BUTTON_ROW_DUPLICATE(asset.id)}>
+              ทำสำเนา
+            </DropdownMenuItem>
+          )}
 
-          <DropdownMenuSeparator />
+          {canEdit && <DropdownMenuSeparator />}
 
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>ข้อมูลเพิ่มเติม</DropdownMenuSubTrigger>
@@ -146,24 +154,26 @@ export function DataTableRowActions<TData>({
             </DropdownMenuSubContent>
           </DropdownMenuSub>
 
-          <DropdownMenuSeparator />
+          {canDelete && <DropdownMenuSeparator />}
 
-          <ConfirmDeleteDialog
-            trigger={
-              <DropdownMenuItem
-                onSelect={(e) => e.preventDefault()} // Prevent dropdown from closing immediately
-                className="text-red-600 focus:text-red-600"
-                data-testid={TEST_IDS.ASSET.BUTTON_ROW_DELETE(asset.id)}
-              >
-                ลบ
-              </DropdownMenuItem>
-            }
-            title={`ยืนยันการลบ "${asset.assetName}" ?`}
-            description="หากคุณลบรายการนี้ ข้อมูลจะไม่สามารถกู้คืนได้"
-            onConfirm={handleDeleteConfirm}
-            confirmText="ลบเลย"
-            confirmButtonTestId={TEST_IDS.ASSET.BUTTON_ROW_DELETE_CONFIRM(asset.id)}
-          />
+          {canDelete && (
+            <ConfirmDeleteDialog
+              trigger={
+                <DropdownMenuItem
+                  onSelect={(e) => e.preventDefault()}
+                  className="text-red-600 focus:text-red-600"
+                  data-testid={TEST_IDS.ASSET.BUTTON_ROW_DELETE(asset.id)}
+                >
+                  ลบ
+                </DropdownMenuItem>
+              }
+              title={`ยืนยันการลบ "${asset.assetName}" ?`}
+              description="หากคุณลบรายการนี้ ข้อมูลจะไม่สามารถกู้คืนได้"
+              onConfirm={handleDeleteConfirm}
+              confirmText="ลบเลย"
+              confirmButtonTestId={TEST_IDS.ASSET.BUTTON_ROW_DELETE_CONFIRM(asset.id)}
+            />
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     </>

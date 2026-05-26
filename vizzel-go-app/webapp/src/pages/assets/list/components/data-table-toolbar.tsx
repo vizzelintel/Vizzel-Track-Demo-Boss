@@ -51,6 +51,7 @@ import { DataTableFacetedFilter } from "./data-table-faceted-filter";
 import { ExportFilterDialog } from "./export-filter-dialog";
 import { useState } from "react";
 import { useUser } from "@/hooks/use-user";
+import { usePermissions } from "@/hooks/use-permissions";
 import { TEST_IDS } from "@/components/test-ids";
 import { filterRefRows, toFacetOptions } from "@/lib/asset-normalize";
 
@@ -92,6 +93,7 @@ export function DataTableToolbar<TData>({
   onClassChange,
 }: DataTableToolbarProps<TData>) {
   const { user } = useUser();
+  const { can } = usePermissions();
   const isFiltered = table.getState().columnFilters.length > 0;
   const [filterExportOpen, setFilterExportOpen] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
@@ -100,6 +102,8 @@ export function DataTableToolbar<TData>({
   const rowSelection = table.getState().rowSelection;
   const selectedIds = Object.keys(rowSelection).map(Number);
   const isSuperAdmin = (user as any)?.roleID === 1;
+  const canEditAssets = can("assets", "edit");
+  const canDeleteAssets = can("assets", "delete");
   const allCategories = filterRefRows(initialReferenceData?.categories);
 
   // Local state for input to avoid UI lag, sync with debounce
@@ -395,8 +399,8 @@ export function DataTableToolbar<TData>({
             <DataTableViewOptions table={table} />
           </div>
 
-          {/* Bulk Delete - Super Admin only */}
-          {isSuperAdmin && Object.keys(rowSelection).length > 0 && (
+          {/* Bulk Delete - requires assets.delete permission */}
+          {(isSuperAdmin || canDeleteAssets) && Object.keys(rowSelection).length > 0 && (
             <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm" className="h-8 px-2 sm:px-3" data-testid={TEST_IDS.ASSET.BUTTON_BULK_DELETE}>
@@ -437,18 +441,20 @@ export function DataTableToolbar<TData>({
               <FileText className="mr-2 h-4 w-4" />
               เทมเพลต
             </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8" data-testid={TEST_IDS.ASSET.BUTTON_IMPORT}>
-                  <FileDown className="mr-2 h-4 w-4" />
-                  นำเข้า
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onImport("default")} data-testid={TEST_IDS.ASSET.BUTTON_IMPORT_STANDARD}>Standard</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onImport("elaas")} data-testid={TEST_IDS.ASSET.BUTTON_IMPORT_ELAAS}>e-LAAS (Excel)</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {canEditAssets && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-8" data-testid={TEST_IDS.ASSET.BUTTON_IMPORT}>
+                    <FileDown className="mr-2 h-4 w-4" />
+                    นำเข้า
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => onImport("default")} data-testid={TEST_IDS.ASSET.BUTTON_IMPORT_STANDARD}>Standard</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onImport("elaas")} data-testid={TEST_IDS.ASSET.BUTTON_IMPORT_ELAAS}>e-LAAS (Excel)</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-8" data-testid={TEST_IDS.ASSET.BUTTON_EXPORT}>
@@ -495,19 +501,23 @@ export function DataTableToolbar<TData>({
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Button size="sm" className="h-8" onClick={onCreate} data-testid={TEST_IDS.ASSET.BUTTON_CREATE}>
-              <Plus className="mr-2 h-4 w-4" />
-              เพิ่มสินทรัพย์
-            </Button>
+            {canEditAssets && (
+              <Button size="sm" className="h-8" onClick={onCreate} data-testid={TEST_IDS.ASSET.BUTTON_CREATE}>
+                <Plus className="mr-2 h-4 w-4" />
+                เพิ่มสินทรัพย์
+              </Button>
+            )}
           </div>
         </div>
       </div>
 
       {/* 👈 3. ปุ่มเพิ่มสินทรัพย์ (Mobile - Full Width) */}
-      <Button className="w-full xl:hidden" onClick={onCreate} data-testid={TEST_IDS.ASSET.BUTTON_CREATE}>
-        <Plus className="mr-2 h-4 w-4" />
-        เพิ่มสินทรัพย์
-      </Button>
+      {canEditAssets && (
+        <Button className="w-full xl:hidden" onClick={onCreate} data-testid={TEST_IDS.ASSET.BUTTON_CREATE}>
+          <Plus className="mr-2 h-4 w-4" />
+          เพิ่มสินทรัพย์
+        </Button>
+      )}
 
       <ExportFilterDialog
         open={filterExportOpen}

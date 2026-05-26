@@ -12,6 +12,7 @@ import { PageLoader } from "@/components/PageLoader";
 import { ElaasImportDialog } from "@/components/assets/ElaasImportDialog";
 import { Button } from "@/components/ui/button";
 import { FileSpreadsheet } from "lucide-react";
+import { usePermissions } from "@/hooks/use-permissions";
 
 type InitialPayload = {
   initialData: { data: AssetData[]; total: number };
@@ -20,10 +21,12 @@ type InitialPayload = {
 
 export function AssetsListPage() {
   const { user, loading: authLoading } = useAuth();
+  const { can } = usePermissions();
   const [payload, setPayload] = useState<InitialPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [elaasOpen, setElaasOpen] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const canImportAssets = can("assets", "edit");
 
   useEffect(() => {
     if (authLoading) return;
@@ -68,17 +71,19 @@ export function AssetsListPage() {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-end gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setElaasOpen(true)}
-          data-testid="elaas-open-btn"
-        >
-          <FileSpreadsheet className="size-4" />
-          นำเข้า ELAAS (.xlsx)
-        </Button>
-      </div>
+      {canImportAssets && (
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setElaasOpen(true)}
+            data-testid="elaas-open-btn"
+          >
+            <FileSpreadsheet className="size-4" />
+            นำเข้า ELAAS (.xlsx)
+          </Button>
+        </div>
+      )}
       <ClientAssetsPage
         bootstrapLoading={false}
         initialData={payload.initialData}

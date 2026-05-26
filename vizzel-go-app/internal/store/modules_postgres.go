@@ -50,6 +50,10 @@ func (s *postgresStore) seedExtraUsers(ctx context.Context, orgID int64) error {
 	if err != nil {
 		return err
 	}
+	if _, err := s.pool.Exec(ctx,
+		`UPDATE users SET role_id = 1 WHERE email = 'superadmin@demo.local'`); err != nil {
+		return err
+	}
 	return s.SeedModules(ctx, orgID)
 }
 

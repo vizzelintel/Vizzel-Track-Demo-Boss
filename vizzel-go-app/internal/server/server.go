@@ -43,12 +43,12 @@ func New(cfg config.Config, st store.Store) http.Handler {
 			r.Get("/assets/initial-data", h.AssetsInitialData)
 			r.Get("/assets/export", h.ExportAssets)
 			r.Get("/assets/{id}", h.GetAsset)
-			r.Post("/assets", h.CreateAsset)
-			r.Patch("/assets/{id}", h.UpdateAsset)
-			r.Delete("/assets/{id}", h.DeleteAsset)
-			r.Post("/assets/import", h.AssetImport)
+			r.With(h.RequirePermission("assets", "edit")).Post("/assets", h.CreateAsset)
+			r.With(h.RequirePermission("assets", "edit")).Patch("/assets/{id}", h.UpdateAsset)
+			r.With(h.RequirePermission("assets", "delete")).Delete("/assets/{id}", h.DeleteAsset)
+			r.With(h.RequirePermission("assets", "edit")).Post("/assets/import", h.AssetImport)
 			r.Get("/assets/template", h.AssetTemplate)
-			r.Patch("/assets/bulk-delete", h.CompatAssetBulkDelete)
+			r.With(h.RequirePermission("assets", "delete")).Patch("/assets/bulk-delete", h.CompatAssetBulkDelete)
 			r.Get("/warranty/initial-data/{orgID}", h.WarrantyInitialData)
 
 			r.Get("/dashboard/summary", h.DashboardSummary)
@@ -138,7 +138,7 @@ func New(cfg config.Config, st store.Store) http.Handler {
 			r.Patch("/roles/{id}", h.UpdateRole)
 			r.Delete("/roles/{id}", h.DeleteRole)
 
-			r.Post("/assets/import/elaas", h.ImportElaasXLSX)
+			r.With(h.RequirePermission("assets", "edit")).Post("/assets/import/elaas", h.ImportElaasXLSX)
 		})
 	})
 

@@ -263,6 +263,13 @@ func (s *sqliteStore) seedExtraUsers(ctx context.Context, orgID int64) error {
 	if err != nil {
 		return err
 	}
+	// Promote the superadmin demo account regardless of when the row landed
+	// (the migrateExtended() UPDATE runs *before* the user is created the
+	// first time, so we re-apply it here as well).
+	if _, err := s.db.ExecContext(ctx,
+		`UPDATE users SET role_id = 1 WHERE email = 'superadmin@demo.local'`); err != nil {
+		return err
+	}
 	return s.SeedModules(ctx, orgID)
 }
 

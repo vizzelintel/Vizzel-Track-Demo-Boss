@@ -10,6 +10,9 @@ webapp/node_modules
 internal/spa/dist
 webapp/playwright-report/
 webapp/test-results/
+e2e/node_modules/
+e2e/test-results/
+e2e/playwright-report/
 elaas-dryrun.json
 elaas-imported.json
 elaas-sample.xlsx
