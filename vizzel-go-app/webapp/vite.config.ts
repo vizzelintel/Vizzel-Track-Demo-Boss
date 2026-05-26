@@ -51,6 +51,8 @@ export default defineConfig({
       "/warranty": apiProxy,
       "/superAdmin": apiProxy,
       "/facility": apiProxy,
+      "/notification": apiProxy,
+      "/notification-channel": apiProxy,
     },
   },
 });

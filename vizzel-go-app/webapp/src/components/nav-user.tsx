@@ -7,6 +7,7 @@ import {
   User,
   Building2,
   Settings,
+  Bell,
 } from "lucide-react";
 
 import { useRouter } from "next/navigation";
@@ -132,6 +133,12 @@ export function NavUser({
               >
                 <BadgeCheck />
                 บัญชี
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => goTo("/notifications")}
+              >
+                <Bell />
+                การแจ้งเตือน
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => goTo("/settings")}

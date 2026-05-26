@@ -1,6 +1,9 @@
 package store
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type Organization struct {
 	ID   int64  `json:"id"`
@@ -75,6 +78,35 @@ type ScanResult struct {
 	AssetName     string `json:"asset_name,omitempty"`
 	ComponentID   int64  `json:"component_id,omitempty"`
 	ComponentName string `json:"component_name,omitempty"`
+}
+
+// Notification is a single bell-list entry persisted per recipient.
+type Notification struct {
+	ID             int64           `json:"id"`
+	OrganizationID int64           `json:"organization_id"`
+	UserID         int64           `json:"user_id"`
+	EventType      string          `json:"event_type"`
+	Title          string          `json:"title"`
+	Body           string          `json:"body"`
+	Link           string          `json:"link"`
+	RefType        string          `json:"ref_type"`
+	RefID          int64           `json:"ref_id"`
+	IsRead         bool            `json:"is_read"`
+	ReadAt         *time.Time      `json:"read_at,omitempty"`
+	CreatedAt      time.Time       `json:"created_at"`
+}
+
+// NotificationChannel is one outbound dispatch target for an organization
+// (LINE Messaging API, LINE Notify, generic webhook, Discord).
+type NotificationChannel struct {
+	ID             int64           `json:"id"`
+	OrganizationID int64           `json:"organization_id"`
+	ChannelType    string          `json:"channel_type"`
+	Name           string          `json:"name"`
+	ConfigJSON     json.RawMessage `json:"config_json"`
+	Events         []string        `json:"events"`
+	IsActive       bool            `json:"is_active"`
+	CreatedAt      time.Time       `json:"created_at"`
 }
 
 type UserRecord struct {

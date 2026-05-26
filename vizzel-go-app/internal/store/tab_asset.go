@@ -259,8 +259,12 @@ func (s *postgresStore) listAssetsTab(ctx context.Context, orgID int64, page, pa
 	if pageSize <= 0 || pageSize > 100 {
 		pageSize = 10
 	}
-	where := ` WHERE a.organization_id = $1 AND a.deleted_at IS NULL`
-	args := []any{orgID}
+	orgIDs, err := s.ResolveOrgScope(ctx, orgID, f.IncludeChildOrgs)
+	if err != nil {
+		return nil, err
+	}
+	where := ` WHERE a.organization_id = ANY($1) AND a.deleted_at IS NULL`
+	args := []any{orgIDs}
 	n := 2
 	if f.Search != "" {
 		where += fmt.Sprintf(` AND (a.asset_name ILIKE $%d OR a.asset_number ILIKE $%d OR COALESCE(a.rfid_num,'') ILIKE $%d)`, n, n, n)

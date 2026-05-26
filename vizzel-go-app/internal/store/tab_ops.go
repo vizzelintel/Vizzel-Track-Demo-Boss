@@ -52,10 +52,12 @@ func (s *postgresStore) GetAuditJob(ctx context.Context, orgID, id int64) (*Row,
 func (s *postgresStore) ListRepairs(ctx context.Context, orgID int64) ([]Row, error) {
 	if s.tabOpsEnabled(ctx) {
 		return s.listRowsPG(ctx,
-			`SELECT r.id, COALESCE(a.asset_number, ''), r.note, 'pending', NULL, r.created_at
+			`SELECT r.id, COALESCE(a.asset_number, ''), COALESCE(r.symptom, r.note, ''),
+			        COALESCE(r.status, 'pending'), COALESCE(r.approval_instance_id, 0), r.created_at
 			 FROM tab_asset_repair r
-			 LEFT JOIN tab_asset a ON a.id = r.asset_id AND a.organization_id = $1
-			 WHERE a.organization_id = $1 OR r.asset_id IS NULL
+			 LEFT JOIN tab_asset a ON a.id = r.asset_id
+			 WHERE (r.organization_id = $1 OR a.organization_id = $1)
+			   AND r.deleted_at IS NULL
 			 ORDER BY r.id DESC LIMIT 200`,
 			orgID,
 		)
@@ -138,42 +140,67 @@ func (s *postgresStore) DeleteCheckJob(ctx context.Context, orgID, jobID int64) 
 }
 
 func (s *postgresStore) CreateWithdrawal(ctx context.Context, orgID int64, requester, item string, internal bool) (int64, error) {
-	_ = internal
+	return s.CreateWithdrawalEx(ctx, orgID, WithdrawalInput{
+		RequesterName: requester,
+		ItemName:      item,
+		Internal:      internal,
+		Type:          "borrow",
+	})
+}
+
+func (s *postgresStore) CreateWithdrawalEx(ctx context.Context, orgID int64, in WithdrawalInput) (int64, error) {
+	_ = in.Internal
 	if s.tabOpsEnabled(ctx) {
+		wType := in.Type
+		if wType == "" {
+			wType = "borrow"
+		}
 		var id int64
 		err := s.pool.QueryRow(ctx,
-			`INSERT INTO tab_internal_request_withdrawal (organization_id, requester_name, item_name, status)
-			 VALUES ($1, $2, $3, 'pending') RETURNING id`,
-			orgID, requester, item,
+			`INSERT INTO tab_internal_request_withdrawal (
+				organization_id, requester_name, item_name, status,
+				asset_id, user_id, withdrawal_type, due_date, note
+			) VALUES ($1, $2, $3, 'draft', $4, $5, $6, $7, $8) RETURNING id`,
+			orgID, in.RequesterName, in.ItemName,
+			nullInt64(in.AssetID), nullInt64(in.UserID), wType, in.DueDate, in.Note,
 		).Scan(&id)
 		return id, err
 	}
 	var id int64
 	err := s.pool.QueryRow(ctx,
 		`INSERT INTO withdrawals (organization_id, requester, item_name, status) VALUES ($1, $2, $3, 'pending') RETURNING id`,
-		orgID, requester, item,
+		orgID, in.RequesterName, in.ItemName,
 	).Scan(&id)
 	return id, err
 }
 
 func (s *postgresStore) CreateRepair(ctx context.Context, orgID int64, assetNumber, note string) (int64, error) {
+	return s.CreateRepairEx(ctx, orgID, RepairInput{AssetNumber: assetNumber, Note: note})
+}
+
+func (s *postgresStore) CreateRepairEx(ctx context.Context, orgID int64, in RepairInput) (int64, error) {
 	if s.tabOpsEnabled(ctx) {
 		var assetID int64
 		_ = s.pool.QueryRow(ctx,
 			`SELECT id FROM tab_asset WHERE organization_id = $1 AND asset_number = $2 AND deleted_at IS NULL LIMIT 1`,
-			orgID, assetNumber,
+			orgID, in.AssetNumber,
 		).Scan(&assetID)
+		symptom := in.Symptom
+		if symptom == "" {
+			symptom = in.Note
+		}
 		var id int64
 		err := s.pool.QueryRow(ctx,
-			`INSERT INTO tab_asset_repair (asset_id, note) VALUES ($1, $2) RETURNING id`,
-			nullInt64(assetID), note,
+			`INSERT INTO tab_asset_repair (asset_id, organization_id, note, symptom, status, requested_by)
+			 VALUES ($1, $2, $3, $4, 'draft', $5) RETURNING id`,
+			nullInt64(assetID), orgID, in.Note, symptom, nullInt64(in.RequestedBy),
 		).Scan(&id)
 		return id, err
 	}
 	var id int64
 	err := s.pool.QueryRow(ctx,
 		`INSERT INTO repairs (organization_id, asset_number, note, status) VALUES ($1, $2, $3, 'pending') RETURNING id`,
-		orgID, assetNumber, note,
+		orgID, in.AssetNumber, in.Note,
 	).Scan(&id)
 	return id, err
 }

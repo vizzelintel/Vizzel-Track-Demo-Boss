@@ -104,6 +104,26 @@ const RepairDashboardPage = lazy(() =>
 const AssetTaxonomyPage = lazy(() =>
   import("./pages/AssetTaxonomyPage").then((m) => ({ default: m.AssetTaxonomyPage })),
 );
+const NotificationsPage = lazy(() =>
+  import("./pages/NotificationsPage").then((m) => ({ default: m.NotificationsPage })),
+);
+const NotificationChannelsPage = lazy(() =>
+  import("./pages/settings/NotificationChannelsPage").then((m) => ({
+    default: m.NotificationChannelsPage,
+  })),
+);
+const ApprovalQueuePage = lazy(() =>
+  import("./pages/ApprovalQueuePage").then((m) => ({ default: m.ApprovalQueuePage })),
+);
+const TransferPage = lazy(() =>
+  import("./pages/TransferPage").then((m) => ({ default: m.TransferPage })),
+);
+const RepairWorkflowPage = lazy(() =>
+  import("./pages/RepairWorkflowPage").then((m) => ({ default: m.RepairWorkflowPage })),
+);
+const CentralAssetsPage = lazy(() =>
+  import("./pages/CentralAssetsPage").then((m) => ({ default: m.CentralAssetsPage })),
+);
 
 function Lazy({ children }: { children: ReactNode }) {
   return <Suspense fallback={<PageLoader />}>{children}</Suspense>;
@@ -407,17 +427,33 @@ export default function App() {
         <Route
           path="/repair"
           element={
-            <EntityCrudPage
-              title="แจ้งซ่อมบำรุง"
-              listEndpoint="/api/v1/repairs"
-              entityKind="repairs"
-              columns={[
-                { key: "title", label: "เลขครุภัณฑ์" },
-                { key: "subtitle", label: "รายละเอียด" },
-                { key: "status", label: "สถานะ" },
-              ]}
-              createLabel="แจ้งซ่อม"
-            />
+            <Lazy>
+              <RepairWorkflowPage />
+            </Lazy>
+          }
+        />
+        <Route
+          path="/approval-queue"
+          element={
+            <Lazy>
+              <ApprovalQueuePage />
+            </Lazy>
+          }
+        />
+        <Route
+          path="/transfer"
+          element={
+            <Lazy>
+              <TransferPage />
+            </Lazy>
+          }
+        />
+        <Route
+          path="/assets/central"
+          element={
+            <Lazy>
+              <CentralAssetsPage />
+            </Lazy>
           }
         />
         <Route
@@ -465,6 +501,22 @@ export default function App() {
           element={
             <Lazy>
               <InboxPage />
+            </Lazy>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <Lazy>
+              <NotificationsPage />
+            </Lazy>
+          }
+        />
+        <Route
+          path="/settings/notifications"
+          element={
+            <Lazy>
+              <NotificationChannelsPage />
             </Lazy>
           }
         />

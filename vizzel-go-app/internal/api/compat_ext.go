@@ -3,10 +3,13 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/vizzelintel/vizzel-track-demo-boss/vizzel-go-app/internal/notify"
 	"github.com/vizzelintel/vizzel-track-demo-boss/vizzel-go-app/internal/store"
 )
 
@@ -44,14 +47,25 @@ func MountCompatExtended(r chi.Router, h *Handler) {
 	r.Post("/withdrawal/internal/confirm/{requestID}", h.WithdrawalInternalConfirm)
 	r.Post("/withdrawal/external/confirm/{requestID}", h.WithdrawalExternalConfirm)
 	r.Post("/withdrawal/take/{approveID}", h.WithdrawalTake)
+	r.Post("/withdrawal/{id}/submit", h.WithdrawalSubmitApproval)
+	r.Post("/withdrawal/{id}/return", h.WithdrawalReturn)
 	r.Get("/withdrawal/get/{orgID}", h.WithdrawalGet)
 	r.Get("/withdrawal/get/detail/{withdrawalID}", h.WithdrawalDetail)
+
+	r.Get("/approval/pending", h.ListPendingApprovals)
+	r.Get("/approval/get/{id}", h.GetApprovalInstance)
+	r.Post("/approval/action/{id}", h.ApprovalAction)
+	r.Get("/transfer/list", h.ListTransfers)
+	r.Post("/transfer/create", h.CreateTransfer)
+	r.Post("/transfer/submit/{id}", h.TransferSubmitApproval)
+	r.Get("/organization/children", h.ListChildOrganizations)
 
 	// Asset LOV & repair
 	r.Get("/asset/get_by/get", h.AssetGetByList)
 	r.Get("/asset/source_fund/get", h.AssetSourceFundList)
 	r.Get("/asset/repair/get", h.AssetRepairGet)
 	r.Post("/asset/repair/create", h.AssetRepairCreate)
+	r.Post("/asset/repair/submit/{id}", h.RepairSubmitApproval)
 	r.Patch("/asset/repair/update/{id}", h.AssetRepairUpdate)
 	r.Patch("/asset/repair/delete/{id}", h.AssetRepairDelete)
 	r.Get("/asset/status/get_all", h.CompatCategories) // alias statuses via reference
@@ -356,12 +370,72 @@ func (h *Handler) withdrawalRequest(w http.ResponseWriter, r *http.Request, inte
 	var body struct {
 		RequesterName string `json:"requesterName"`
 		ItemName      string `json:"itemName"`
+		AssetID       int64  `json:"assetID"`
+		UserID        int64  `json:"userID"`
+		Type          any    `json:"type"`
+		DesireReturn  string `json:"desireReturn"`
+		Note          string `json:"note"`
+		Submit        bool   `json:"submit"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
-	id, err := h.store.CreateWithdrawal(r.Context(), orgID, body.RequesterName, body.ItemName, internal)
+	wType := "borrow"
+	if t, ok := body.Type.(float64); ok && int(t) == 0 {
+		wType = "withdraw"
+	}
+	if t, ok := body.Type.(string); ok && t == "withdraw" {
+		wType = "withdraw"
+	}
+	itemName := body.ItemName
+	if itemName == "" && body.AssetID > 0 {
+		itemName = fmt.Sprintf("asset:%d", body.AssetID)
+	}
+	var due *time.Time
+	if body.DesireReturn != "" {
+		if t, err := time.Parse(time.RFC3339, body.DesireReturn); err == nil {
+			due = &t
+		}
+	}
+	claims, _ := claimsFromContext(r.Context())
+	reqBy := int64(0)
+	if claims != nil {
+		reqBy = claims.UserID
+	}
+	id, err := h.store.CreateWithdrawalEx(r.Context(), orgID, store.WithdrawalInput{
+		RequesterName: body.RequesterName,
+		ItemName:      itemName,
+		AssetID:       body.AssetID,
+		UserID:        body.UserID,
+		Type:          wType,
+		DueDate:       due,
+		Note:          body.Note,
+		Internal:      internal,
+	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "request failed")
 		return
+	}
+	submit := body.Submit
+	if !submit {
+		submit = true
+	}
+	if submit && claims != nil {
+		_ = h.store.SubmitWithdrawalForApproval(r.Context(), orgID, id, reqBy)
+	}
+	if h.dispatcher != nil {
+		var recipients []int64
+		if claims != nil {
+			recipients = []int64{claims.UserID}
+		}
+		_ = h.dispatcher.Dispatch(r.Context(), notify.Event{
+			OrganizationID: orgID,
+			UserIDs:        recipients,
+			EventType:      "withdrawal.requested",
+			Title:          "คำขอเบิก/ยืมใหม่",
+			Body:           fmt.Sprintf("%s ขอเบิก %s", body.RequesterName, itemName),
+			Link:           "/approval-queue",
+			RefType:        "withdrawal",
+			RefID:          id,
+		})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]int64{"id": id}})
 }
@@ -407,6 +481,18 @@ func (h *Handler) withdrawalConfirm(w http.ResponseWriter, r *http.Request, appr
 		status = "rejected"
 	}
 	_ = h.store.UpdateWithdrawalStatus(r.Context(), claims.OrganizationID, id, status)
+	if h.dispatcher != nil && approve {
+		_ = h.dispatcher.Dispatch(r.Context(), notify.Event{
+			OrganizationID: claims.OrganizationID,
+			UserIDs:        []int64{claims.UserID},
+			EventType:      "withdrawal.approved",
+			Title:          "อนุมัติคำขอเบิก/ยืมแล้ว",
+			Body:           fmt.Sprintf("คำขอ #%d ได้รับการอนุมัติ", id),
+			Link:           "/withdrawal-approval",
+			RefType:        "withdrawal",
+			RefID:          id,
+		})
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]string{"status": status}})
 }
 
@@ -491,22 +577,7 @@ func (h *Handler) AssetRepairGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) AssetRepairCreate(w http.ResponseWriter, r *http.Request) {
-	orgID, ok := orgIDFromQueryOrClaims(r)
-	if !ok {
-		writeError(w, http.StatusUnauthorized, "unauthorized")
-		return
-	}
-	var body struct {
-		AssetNumber string `json:"assetNumber"`
-		Note        string `json:"note"`
-	}
-	_ = json.NewDecoder(r.Body).Decode(&body)
-	id, err := h.store.CreateRepair(r.Context(), orgID, body.AssetNumber, body.Note)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "create failed")
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]int64{"id": id}})
+	h.RepairCreateWithApproval(w, r)
 }
 
 func (h *Handler) AssetRepairUpdate(w http.ResponseWriter, r *http.Request) {

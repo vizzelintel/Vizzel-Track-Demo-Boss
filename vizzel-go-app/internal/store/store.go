@@ -69,7 +69,19 @@ type Store interface {
 	UpdateCheckJob(ctx context.Context, orgID, jobID int64, status string, progress int) error
 	DeleteCheckJob(ctx context.Context, orgID, jobID int64) error
 	CreateWithdrawal(ctx context.Context, orgID int64, requester, item string, internal bool) (int64, error)
+	CreateWithdrawalEx(ctx context.Context, orgID int64, in WithdrawalInput) (int64, error)
 	CreateRepair(ctx context.Context, orgID int64, assetNumber, note string) (int64, error)
+	CreateRepairEx(ctx context.Context, orgID int64, in RepairInput) (int64, error)
+	SubmitRepairForApproval(ctx context.Context, orgID, repairID, userID int64) error
+	SubmitWithdrawalForApproval(ctx context.Context, orgID, withdrawalID, userID int64) error
+	SubmitTransferForApproval(ctx context.Context, orgID, transferID, userID int64) error
+	ReturnWithdrawal(ctx context.Context, orgID, id int64) error
+	ListPendingApprovals(ctx context.Context, orgID int64) ([]ApprovalInstance, error)
+	GetApprovalInstance(ctx context.Context, orgID, id int64) (*ApprovalInstance, error)
+	ApprovalAction(ctx context.Context, orgID, instanceID, actorUserID int64, action, branch, note string) error
+	ListTransfers(ctx context.Context, orgID int64) ([]TransferRecord, error)
+	CreateTransfer(ctx context.Context, orgID int64, in TransferInput) (int64, error)
+	ListChildOrganizations(ctx context.Context, parentID int64) ([]Row, error)
 	ListMenuNames(ctx context.Context) (map[int]string, error)
 	OrgLimit(ctx context.Context, orgID int64, kind string) (int, error)
 	ListProvinces(ctx context.Context) ([]Row, error)
@@ -82,6 +94,19 @@ type Store interface {
 	DeleteAssetComponent(ctx context.Context, id int64) error
 	ReplaceAssetComponents(ctx context.Context, assetID int64, items []AssetComponent) error
 	BulkResolveByRFID(ctx context.Context, orgID int64, rfids []string) ([]ScanResult, error)
+
+	CreateNotification(ctx context.Context, n Notification) (int64, error)
+	BulkCreateNotifications(ctx context.Context, list []Notification) error
+	ListNotifications(ctx context.Context, userID int64, page, pageSize int, unreadOnly bool) ([]Notification, int, error)
+	CountUnread(ctx context.Context, userID int64) (int, error)
+	MarkRead(ctx context.Context, id, userID int64) error
+	MarkAllRead(ctx context.Context, userID int64) error
+
+	ListChannels(ctx context.Context, orgID int64) ([]NotificationChannel, error)
+	GetChannel(ctx context.Context, id, orgID int64) (*NotificationChannel, error)
+	CreateChannel(ctx context.Context, c NotificationChannel) (int64, error)
+	UpdateChannel(ctx context.Context, id, orgID int64, c NotificationChannel) error
+	DeleteChannel(ctx context.Context, id, orgID int64) error
 }
 
 func Open(ctx context.Context, dbURL, sqlitePath string) (Store, error) {

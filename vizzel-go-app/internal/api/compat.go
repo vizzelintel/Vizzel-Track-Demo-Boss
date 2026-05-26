@@ -3,11 +3,13 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/vizzelintel/vizzel-track-demo-boss/vizzel-go-app/internal/notify"
 	"github.com/vizzelintel/vizzel-track-demo-boss/vizzel-go-app/internal/store"
 )
 
@@ -70,6 +72,19 @@ func MountProductionRoutes(r chi.Router, h *Handler) {
 	r.Get("/organization/initial-data/{orgID}", h.OrgInitialData)
 	r.Get("/facility/building/get", h.ListBuildings)
 	r.Get("/superAdmin/dashboard/overview", h.SuperAdminStats)
+
+	r.Get("/notification/list", h.ListNotifications)
+	r.Get("/notification/unread-count", h.UnreadCountNotifications)
+	r.Patch("/notification/read/{id}", h.MarkNotificationRead)
+	r.Patch("/notification/read-all", h.MarkAllNotificationsRead)
+	r.Post("/notification/test-ping", h.NotificationTestPing)
+
+	r.Get("/notification-channel/list", h.ListNotificationChannels)
+	r.Post("/notification-channel/create", h.CreateNotificationChannel)
+	r.Patch("/notification-channel/update/{id}", h.UpdateNotificationChannel)
+	r.Delete("/notification-channel/delete/{id}", h.DeleteNotificationChannel)
+	r.Post("/notification-channel/test/{id}", h.TestNotificationChannel)
+
 	MountCompatExtended(r, h)
 }
 
@@ -168,6 +183,9 @@ func parseAssetListFilter(r *http.Request, orgID int64, storeInst store.Store) s
 				}
 			}
 		}
+	}
+	if r.URL.Query().Get("include_children") == "1" || r.URL.Query().Get("includeChildren") == "true" {
+		f.IncludeChildOrgs = true
 	}
 	return f
 }
@@ -271,6 +289,18 @@ func (h *Handler) CompatAssetCreate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "create failed")
 		return
 	}
+	if h.dispatcher != nil {
+		_ = h.dispatcher.Dispatch(r.Context(), notify.Event{
+			OrganizationID: claims.OrganizationID,
+			UserIDs:        []int64{claims.UserID},
+			EventType:      "asset.created",
+			Title:          "เพิ่มสินทรัพย์ใหม่",
+			Body:           fmt.Sprintf("%s (%s)", a.AssetName, a.AssetNumber),
+			Link:           fmt.Sprintf("/assets/list?id=%d", a.ID),
+			RefType:        "asset",
+			RefID:          a.ID,
+		})
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": toCompatAsset(*a)})
 }
 
@@ -290,6 +320,22 @@ func (h *Handler) CompatAssetUpdate(w http.ResponseWriter, r *http.Request) {
 	if err := h.store.UpdateAsset(r.Context(), claims.OrganizationID, id, in); err != nil {
 		writeError(w, http.StatusInternalServerError, "update failed")
 		return
+	}
+	if h.dispatcher != nil {
+		title := in.AssetName
+		if title == "" {
+			title = in.AssetNumber
+		}
+		_ = h.dispatcher.Dispatch(r.Context(), notify.Event{
+			OrganizationID: claims.OrganizationID,
+			UserIDs:        []int64{claims.UserID},
+			EventType:      "asset.updated",
+			Title:          "อัปเดตข้อมูลสินทรัพย์",
+			Body:           fmt.Sprintf("%s (%s)", title, in.AssetNumber),
+			Link:           fmt.Sprintf("/assets/list?id=%d", id),
+			RefType:        "asset",
+			RefID:          id,
+		})
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }

@@ -10,17 +10,19 @@ import (
 
 	"github.com/vizzelintel/vizzel-track-demo-boss/vizzel-go-app/internal/auth"
 	"github.com/vizzelintel/vizzel-track-demo-boss/vizzel-go-app/internal/config"
+	"github.com/vizzelintel/vizzel-track-demo-boss/vizzel-go-app/internal/notify"
 	"github.com/vizzelintel/vizzel-track-demo-boss/vizzel-go-app/internal/store"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type Handler struct {
-	cfg   config.Config
-	store store.Store
+	cfg        config.Config
+	store      store.Store
+	dispatcher *notify.Dispatcher
 }
 
 func New(cfg config.Config, s store.Store) *Handler {
-	return &Handler{cfg: cfg, store: s}
+	return &Handler{cfg: cfg, store: s, dispatcher: notify.New(s)}
 }
 
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {

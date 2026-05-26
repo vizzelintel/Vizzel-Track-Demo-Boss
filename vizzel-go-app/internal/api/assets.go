@@ -53,6 +53,9 @@ func (h *Handler) listAssetsPaged(w http.ResponseWriter, r *http.Request, orgID 
 	if v, err := strconv.ParseInt(r.URL.Query().Get("class_id"), 10, 64); err == nil && v > 0 {
 		f.ClassID = v
 	}
+	if r.URL.Query().Get("include_children") == "1" || r.URL.Query().Get("includeChildren") == "true" {
+		f.IncludeChildOrgs = true
+	}
 	result, err := h.store.ListAssetsPaged(r.Context(), orgID, page, pageSize, f)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "list assets failed")

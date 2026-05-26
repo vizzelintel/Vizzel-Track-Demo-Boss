@@ -148,6 +148,7 @@ export function AppSidebar({
       { title: "จัดการสมาชิก", url: "/users", testId: TEST_IDS.SIDEBAR.LINK_USERS },
       { title: "ข้อมูลองค์กรและสถานที่", url: "/organization" },
       { title: "จัดการโครงสร้างองค์กร", url: "/organization-structure" },
+      { title: "ตั้งค่าการแจ้งเตือน", url: "/settings/notifications" },
     ],
   };
 
@@ -284,10 +285,28 @@ export function AppSidebar({
 
         // 3. Approval - Admins (Role 1 & 2)
         ...([1, 2].includes(roleID as number)
-          ? [{ title: "อนุมัติการเบิก-ยืม", url: "/withdrawal-approval" }]
+          ? [
+              { title: "อนุมัติการเบิก-ยืม", url: "/withdrawal-approval" },
+              { title: "คิวอนุมัติ (รวม)", url: "/approval-queue" },
+            ]
           : []),
       ],
     },
+    {
+      title: "โอนย้ายครุภัณฑ์",
+      url: "/transfer",
+      icon: ArrowLeftRight,
+      disabled: !showMainSystem,
+    },
+    ...([1, 2].includes(roleID as number)
+      ? [
+          {
+            title: "ทรัพย์สินหน่วยงานย่อย",
+            url: "/assets/central",
+            icon: Database,
+          },
+        ]
+      : []),
   ];
 
   // Role 4 Restriction: Hide org specific items if Role 4
