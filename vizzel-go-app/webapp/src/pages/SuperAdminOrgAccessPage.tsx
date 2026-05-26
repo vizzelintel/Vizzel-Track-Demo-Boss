@@ -1,8 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Trash2 } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/data/DataTable";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -40,6 +51,9 @@ export function SuperAdminOrgAccessPage() {
   const [userID, setUserID] = useState<string>("");
   const [roleID, setRoleID] = useState<string>("2");
   const [submitting, setSubmitting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -73,6 +87,34 @@ export function SuperAdminOrgAccessPage() {
 
   const orgMap = useMemo(() => new Map(orgs.map((o) => [o.id, o.title])), [orgs]);
 
+  const bulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    setBulkDeleting(true);
+    let success = 0;
+    let failed = 0;
+    for (const id of selectedIds) {
+      try {
+        await apiRequest(`/api/v1/super-admin/org-access/${id}`, {
+          method: "DELETE",
+        });
+        success += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+    if (success > 0 && failed === 0) {
+      toast.success(`ลบสำเร็จ ${success} รายการ`);
+    } else if (success > 0 && failed > 0) {
+      toast.warning(`ลบสำเร็จ ${success} รายการ และล้มเหลว ${failed} รายการ`);
+    } else {
+      toast.error("ลบรายการที่เลือกไม่สำเร็จ");
+    }
+    setBulkDeleting(false);
+    setBulkOpen(false);
+    setSelectedIds([]);
+    load();
+  };
+
   const handleAdd = async () => {
     if (!userID || !orgID) {
       toast.error("เลือกผู้ใช้และองค์กร");
@@ -101,8 +143,20 @@ export function SuperAdminOrgAccessPage() {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between gap-2">
         <CardTitle>สิทธิ์เข้าถึงข้ามองค์กร</CardTitle>
+        {selectedIds.length > 0 && (
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            onClick={() => setBulkOpen(true)}
+            data-testid="org-access-bulk-delete"
+          >
+            <Trash2 className="mr-2 size-4" />
+            ลบที่เลือก ({selectedIds.length})
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="grid items-end gap-3 rounded-lg border bg-muted/30 p-4 md:grid-cols-[1fr_1fr_160px_120px]">
@@ -177,19 +231,37 @@ export function SuperAdminOrgAccessPage() {
             },
           ]}
           rows={rows}
-          onDelete={async (r) => {
-            try {
-              await apiRequest(`/api/v1/super-admin/org-access/${r.id}`, {
-                method: "DELETE",
-              });
-              toast.success("ลบสิทธิ์แล้ว");
-              load();
-            } catch {
-              toast.error("ลบไม่สำเร็จ");
-            }
-          }}
+          selectable
+          selectedIds={selectedIds}
+          onSelectionChange={setSelectedIds}
         />
       </CardContent>
+
+      <AlertDialog open={bulkOpen} onOpenChange={setBulkOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>ยืนยันการลบ</AlertDialogTitle>
+            <AlertDialogDescription>
+              ลบสิทธิ์เข้าถึงจำนวน {selectedIds.length} รายการ?
+              การดำเนินการนี้ไม่สามารถกู้คืนได้
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkDeleting}>ยกเลิก</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                bulkDelete();
+              }}
+              disabled={bulkDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+              data-testid="org-access-bulk-delete-confirm"
+            >
+              {bulkDeleting ? "กำลังลบ..." : "ยืนยันลบ"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

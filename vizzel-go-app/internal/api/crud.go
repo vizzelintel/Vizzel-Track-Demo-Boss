@@ -188,6 +188,40 @@ func (h *Handler) EntityDelete(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+// EntityBulkDelete removes many ids of the same kind in one request. We loop
+// EntityDelete so individual failures don't poison the batch.
+func (h *Handler) EntityBulkDelete(w http.ResponseWriter, r *http.Request) {
+	orgID, ok := orgIDFromRequest(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	kind := chi.URLParam(r, "kind")
+	var body struct {
+		IDs []int64 `json:"ids"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || len(body.IDs) == 0 {
+		writeError(w, http.StatusBadRequest, "ids required")
+		return
+	}
+	deleted := 0
+	failed := make([]int64, 0)
+	for _, id := range body.IDs {
+		if id <= 0 {
+			continue
+		}
+		if err := h.store.EntityDelete(r.Context(), kind, orgID, id); err != nil {
+			failed = append(failed, id)
+			continue
+		}
+		deleted++
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"deleted": deleted,
+		"failed":  failed,
+	})
+}
+
 func (h *Handler) ListInstitutes(w http.ResponseWriter, r *http.Request) {
 	h.listModule(w, r, func(orgID int64) ([]store.Row, error) {
 		return h.store.ListInstitutes(r.Context(), orgID)

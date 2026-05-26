@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
+import { Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { apiRequest } from "@/lib/api";
 import { unwrapListRows } from "@/lib/list-response";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +14,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -53,12 +65,16 @@ export function EntityCrudPage({
   const [name, setName] = useState("");
   const [parentId, setParentId] = useState("");
   const [parents, setParents] = useState<ListRow[]>([]);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await apiRequest<unknown>(listEndpoint);
       setRows(unwrapListRows(res));
+      setSelectedIds([]);
     } finally {
       setLoading(false);
     }
@@ -114,21 +130,72 @@ export function EntityCrudPage({
     load();
   };
 
-  const remove = async (row: ListRow) => {
-    if (!entityKind || !confirm(`ลบ "${row.title}"?`)) return;
-    await apiRequest(`/api/v1/entities/${entityKind}/${row.id}`, { method: "DELETE" });
-    load();
+  const bulkDelete = async () => {
+    if (!entityKind || selectedIds.length === 0) return;
+    setBulkDeleting(true);
+    let success = 0;
+    let failed = 0;
+    try {
+      // Try a bulk endpoint first; gracefully fall back to per-id DELETE on 404/405.
+      try {
+        await apiRequest(`/api/v1/entities/${entityKind}/bulk-delete`, {
+          method: "POST",
+          body: JSON.stringify({ ids: selectedIds }),
+        });
+        success = selectedIds.length;
+      } catch {
+        for (const id of selectedIds) {
+          try {
+            await apiRequest(`/api/v1/entities/${entityKind}/${id}`, {
+              method: "DELETE",
+            });
+            success += 1;
+          } catch {
+            failed += 1;
+          }
+        }
+      }
+      if (success > 0 && failed === 0) {
+        toast.success(`ลบสำเร็จ ${success} รายการ`);
+      } else if (success > 0 && failed > 0) {
+        toast.warning(
+          `ลบสำเร็จ ${success} รายการ และล้มเหลว ${failed} รายการ`,
+        );
+      } else {
+        toast.error("ลบรายการที่เลือกไม่สำเร็จ");
+      }
+      setBulkOpen(false);
+      setSelectedIds([]);
+      load();
+    } finally {
+      setBulkDeleting(false);
+    }
   };
 
   return (
     <Card>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
         <CardTitle className="text-lg">{title}</CardTitle>
-        {entityKind && (
-          <Button size="sm" onClick={openCreate}>
-            {createLabel}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {entityKind && selectedIds.length > 0 && (
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={() => setBulkOpen(true)}
+              data-testid="entity-bulk-delete"
+            >
+              <Trash2 className="mr-2 size-4" />
+              ลบที่เลือก ({selectedIds.length})
+            </Button>
+          )}
+          {entityKind && (
+            <Button size="sm" onClick={openCreate}>
+              <Plus className="mr-2 size-4" />
+              {createLabel}
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <DataTable
@@ -136,7 +203,9 @@ export function EntityCrudPage({
           rows={rows}
           loading={loading}
           onEdit={entityKind ? openEdit : undefined}
-          onDelete={entityKind ? remove : undefined}
+          selectable={Boolean(entityKind)}
+          selectedIds={selectedIds}
+          onSelectionChange={setSelectedIds}
         />
       </CardContent>
 
@@ -182,6 +251,32 @@ export function EntityCrudPage({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={bulkOpen} onOpenChange={setBulkOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>ยืนยันการลบ</AlertDialogTitle>
+            <AlertDialogDescription>
+              ลบ {title} จำนวน {selectedIds.length} รายการ?
+              การดำเนินการนี้ไม่สามารถกู้คืนได้
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkDeleting}>ยกเลิก</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                bulkDelete();
+              }}
+              disabled={bulkDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+              data-testid="entity-bulk-delete-confirm"
+            >
+              {bulkDeleting ? "กำลังลบ..." : "ยืนยันลบ"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

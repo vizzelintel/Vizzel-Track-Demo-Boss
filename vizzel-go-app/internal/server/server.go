@@ -107,6 +107,7 @@ func New(cfg config.Config, st store.Store) http.Handler {
 
 			r.Route("/entities/{kind}", func(r chi.Router) {
 				r.Post("/", h.EntityCreate)
+				r.Post("/bulk-delete", h.EntityBulkDelete)
 				r.Patch("/{id}", h.EntityUpdate)
 				r.Delete("/{id}", h.EntityDelete)
 			})
