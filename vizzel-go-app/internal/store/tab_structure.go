@@ -9,7 +9,7 @@ func (s *postgresStore) tabStructureEnabled(ctx context.Context) bool {
 func (s *postgresStore) ListDepartments(ctx context.Context, orgID int64) ([]Row, error) {
 	if s.tabStructureEnabled(ctx) {
 		return s.listRowsPG(ctx,
-			`SELECT id, dept_name, NULL, NULL, NULL, created_at FROM tab_dept
+			`SELECT id, dept_name, NULL, NULL, institute_id, created_at FROM tab_dept
 			 WHERE organization_id = $1 AND deleted_at IS NULL ORDER BY id`,
 			orgID,
 		)

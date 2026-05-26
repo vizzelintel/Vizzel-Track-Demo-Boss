@@ -16,6 +16,7 @@ import {
 import { Bar, BarChart, XAxis, YAxis, Cell } from "recharts";
 import { BarChart3 } from "lucide-react";
 import { formatNumberCompact } from "@/lib/utils";
+import { truncateLabel } from "@/lib/safe-format";
 
 interface PersonalCategoryChartProps {
   data?: Array<{
@@ -77,9 +78,7 @@ export function PersonalCategoryChart({ data }: PersonalCategoryChartProps) {
                 axisLine={false}
                 width={110}
                 tick={{ fontSize: 12 }}
-                tickFormatter={(value) =>
-                  value.length > 15 ? `${value.substring(0, 15)}...` : value
-                }
+                tickFormatter={(value) => truncateLabel(value, 15)}
               />
               <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
               <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={32}>

@@ -75,12 +75,11 @@ func (h *Handler) CompatDashboardSummaryWrapped(w http.ResponseWriter, r *http.R
 	if !ok {
 		return
 	}
-	ext, err := h.store.DashboardExtended(r.Context(), orgID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed")
+	b, ok2 := h.writeDashboardBundle(w, r, orgID)
+	if !ok2 {
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": summaryPayload(ext)})
+	writeJSON(w, http.StatusOK, map[string]any{"data": summaryPayload(&b.Extended)})
 }
 
 func (h *Handler) CompatDashboardTrendWrapped(w http.ResponseWriter, r *http.Request) {
@@ -88,8 +87,11 @@ func (h *Handler) CompatDashboardTrendWrapped(w http.ResponseWriter, r *http.Req
 	if !ok {
 		return
 	}
-	ext, _ := h.store.DashboardExtended(r.Context(), orgID)
-	writeJSON(w, http.StatusOK, map[string]any{"data": trendPoints(ext)})
+	b, ok2 := h.writeDashboardBundle(w, r, orgID)
+	if !ok2 {
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": b.TrendByMonth})
 }
 
 func (h *Handler) CompatDashboardStatusWrapped(w http.ResponseWriter, r *http.Request) {
@@ -97,8 +99,11 @@ func (h *Handler) CompatDashboardStatusWrapped(w http.ResponseWriter, r *http.Re
 	if !ok {
 		return
 	}
-	ext, _ := h.store.DashboardExtended(r.Context(), orgID)
-	writeJSON(w, http.StatusOK, map[string]any{"data": statusChartData(ext)})
+	b, ok2 := h.writeDashboardBundle(w, r, orgID)
+	if !ok2 {
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": statusChartData(&b.Extended)})
 }
 
 func (h *Handler) CompatDashboardLocationWrapped(w http.ResponseWriter, r *http.Request) {
@@ -106,35 +111,11 @@ func (h *Handler) CompatDashboardLocationWrapped(w http.ResponseWriter, r *http.
 	if !ok {
 		return
 	}
-	ext, _ := h.store.DashboardExtended(r.Context(), orgID)
-	items := make([]map[string]any, 0, len(ext.LocationBreakdown))
-	res, _ := h.store.ListAssetsPaged(r.Context(), orgID, 1, 500, store.AssetFilter{})
-	valueByLoc := map[string]int64{}
-	if res != nil {
-		for _, a := range res.Data {
-			loc := a.BuildingName
-			if loc == "" {
-				loc = "ไม่ระบุ"
-			}
-			valueByLoc[loc] += a.AssetValue
-		}
+	b, ok2 := h.writeDashboardBundle(w, r, orgID)
+	if !ok2 {
+		return
 	}
-	for _, loc := range ext.LocationBreakdown {
-		name := loc.Name
-		if name == "" {
-			name = "ไม่ระบุ"
-		}
-		val := valueByLoc[name]
-		if val == 0 {
-			val = int64(loc.Count) * 10000
-		}
-		items = append(items, map[string]any{
-			"location": name,
-			"count":    loc.Count,
-			"value":    val,
-		})
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": items})
+	writeJSON(w, http.StatusOK, map[string]any{"data": b.LocationRows})
 }
 
 func (h *Handler) CompatDashboardValueHistory(w http.ResponseWriter, r *http.Request) {
@@ -142,16 +123,11 @@ func (h *Handler) CompatDashboardValueHistory(w http.ResponseWriter, r *http.Req
 	if !ok {
 		return
 	}
-	ext, _ := h.store.DashboardExtended(r.Context(), orgID)
-	points := make([]map[string]any, 0, len(ext.Trend.Labels))
-	for i, label := range ext.Trend.Labels {
-		val := int64(0)
-		if i < len(ext.Trend.Values) {
-			val = int64(ext.Trend.Values[i]) * 10000
-		}
-		points = append(points, map[string]any{"date": label, "value": val})
+	b, ok2 := h.writeDashboardBundle(w, r, orgID)
+	if !ok2 {
+		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": points})
+	writeJSON(w, http.StatusOK, map[string]any{"data": valueHistoryJSON(b.ValueHistory)})
 }
 
 func (h *Handler) CompatDashboardDepreciation(w http.ResponseWriter, r *http.Request) {
@@ -159,30 +135,11 @@ func (h *Handler) CompatDashboardDepreciation(w http.ResponseWriter, r *http.Req
 	if !ok {
 		return
 	}
-	ext, _ := h.store.DashboardExtended(r.Context(), orgID)
-	if ext == nil {
-		ext = &store.DashboardExtended{}
+	b, ok2 := h.writeDashboardBundle(w, r, orgID)
+	if !ok2 {
+		return
 	}
-	y1 := time.Now().Year() - 1
-	y2 := time.Now().Year()
-	dep1 := ext.AccumulatedDepreciation / 3
-	dep2 := ext.AccumulatedDepreciation - dep1
-	writeJSON(w, http.StatusOK, map[string]any{
-		"data": []map[string]any{
-			{
-				"year":           strconv.Itoa(y1),
-				"granularity":    "year",
-				"depreciation":   dep1,
-				"accumulated":    dep1,
-			},
-			{
-				"year":           strconv.Itoa(y2),
-				"granularity":    "year",
-				"depreciation":   dep2,
-				"accumulated":    ext.AccumulatedDepreciation,
-			},
-		},
-	})
+	writeJSON(w, http.StatusOK, map[string]any{"data": depreciationHistoryJSON(b.DepreciationHistory)})
 }
 
 func (h *Handler) CompatDashboardNewAssets(w http.ResponseWriter, r *http.Request) {
@@ -190,28 +147,11 @@ func (h *Handler) CompatDashboardNewAssets(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
-	res, _ := h.store.ListAssetsPaged(r.Context(), orgID, 1, 200, store.AssetFilter{})
-	items := make([]map[string]any, 0)
-	if res != nil {
-		limit := res.Total
-		if limit > 50 {
-			limit = 50
-		}
-		for i, a := range res.Data {
-			if i >= limit {
-				break
-			}
-			items = append(items, map[string]any{
-				"id":           a.ID,
-				"assetNumber":  a.AssetNumber,
-				"assetName":    a.AssetName,
-				"category":     a.CategoryName,
-				"cost":         a.AssetValue,
-				"receivedDate": a.CreatedAt.Format("2006-01-02"),
-			})
-		}
+	b, ok2 := h.writeDashboardBundle(w, r, orgID)
+	if !ok2 {
+		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": items})
+	writeJSON(w, http.StatusOK, map[string]any{"data": b.NewAssetRows})
 }
 
 func (h *Handler) CompatPersonalSummary(w http.ResponseWriter, r *http.Request) {

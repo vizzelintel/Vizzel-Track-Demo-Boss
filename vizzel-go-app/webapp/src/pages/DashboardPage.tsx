@@ -8,15 +8,15 @@ import { DepreciationSection } from "@/components/depreciation-section";
 import { NewAssetsSection } from "@/components/new-assets-section";
 import { AssetLocationSection } from "@/components/asset-location-section";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  getAssetLocationDashboard,
-  getAssetStatusChart,
-  getAssetTrend,
-  getAssetValueHistory,
-  getDashboardSummary,
-  getDepreciationHistoryDashboard,
-  getNewAssetsDashboard,
-} from "@/lib/data-service";
+import { getDashboardInitialData } from "@/lib/data-service";
+import type {
+  DepreciationRow,
+  LocationRow,
+  NewAssetRow,
+  StatusRow,
+  TrendRow,
+  ValueHistoryRow,
+} from "@/lib/dashboard-normalize";
 import { TEST_IDS } from "@/components/test-ids";
 
 function CardSkeleton({ className = "h-[360px]" }: { className?: string }) {
@@ -27,29 +27,12 @@ export function DashboardPage() {
   const { user } = useAuth();
   const orgId = user?.organization_id ?? 0;
   const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
-  const [trend, setTrend] = useState<Array<{ date: string; count: number }>>([]);
-  const [valueHistory, setValueHistory] = useState<
-    Array<{ date: string; value: number }>
-  >([]);
-  const [statusChart, setStatusChart] = useState<
-    Array<{ status: string; value: number; label: string }> | null
-  >(null);
-  const [depreciation, setDepreciation] = useState<
-    Array<{ year: string; depreciation: number; accumulated: number }>
-  >([]);
-  const [newAssets, setNewAssets] = useState<
-    Array<{
-      id: number;
-      assetNumber: string;
-      assetName: string;
-      category: string;
-      cost: number;
-      receivedDate: string;
-    }>
-  >([]);
-  const [location, setLocation] = useState<
-    Array<{ location: string; count: number; value: number }>
-  >([]);
+  const [trend, setTrend] = useState<TrendRow[]>([]);
+  const [valueHistory, setValueHistory] = useState<ValueHistoryRow[]>([]);
+  const [statusChart, setStatusChart] = useState<StatusRow[] | null>(null);
+  const [depreciation, setDepreciation] = useState<DepreciationRow[]>([]);
+  const [newAssets, setNewAssets] = useState<NewAssetRow[]>([]);
+  const [location, setLocation] = useState<LocationRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -57,15 +40,18 @@ export function DashboardPage() {
       setLoading(false);
       return;
     }
-    Promise.all([
-      getDashboardSummary(orgId).then(setSummary),
-      getAssetTrend(orgId, "3m", "week").then(setTrend),
-      getAssetValueHistory(orgId, "3m", "week").then(setValueHistory),
-      getAssetStatusChart(orgId).then(setStatusChart),
-      getDepreciationHistoryDashboard(orgId, "3y").then(setDepreciation),
-      getNewAssetsDashboard(orgId).then(setNewAssets),
-      getAssetLocationDashboard(orgId).then(setLocation),
-    ]).finally(() => setLoading(false));
+    setLoading(true);
+    getDashboardInitialData(orgId)
+      .then((bundle) => {
+        setSummary(bundle.summary);
+        setTrend(bundle.trend);
+        setValueHistory(bundle.valueHistory);
+        setStatusChart(bundle.status);
+        setDepreciation(bundle.depreciation);
+        setNewAssets(bundle.newAssets);
+        setLocation(bundle.location);
+      })
+      .finally(() => setLoading(false));
   }, [orgId]);
 
   if (loading) {
@@ -96,8 +82,8 @@ export function DashboardPage() {
           <div className="grid grid-cols-1 gap-3 px-4 lg:grid-cols-2 lg:px-6">
             <AssetValueHistoryChart
               organizationID={orgId}
-              initialData={valueHistory ?? []}
-              initialRangeId="3m"
+              initialData={valueHistory}
+              initialRangeId="3y"
             />
             <AssetStatusChart data={statusChart} />
           </div>

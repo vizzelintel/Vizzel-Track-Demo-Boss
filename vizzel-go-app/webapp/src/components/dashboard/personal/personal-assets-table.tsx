@@ -32,6 +32,8 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { useDebounce } from "@/hooks/use-debounce";
 import { TEST_IDS } from "@/components/test-ids";
+import { formatLocaleNumber } from "@/lib/safe-format";
+import { normalizePersonalAssetRows } from "@/lib/personal-dashboard-normalize";
 
 export interface PersonalAssetItem {
   id: number;
@@ -95,11 +97,12 @@ export function PersonalAssetsTable({
 
   const payload = isNestedResponse ? data.data : data;
 
-  const tableData = Array.isArray(payload?.data)
+  const rawTable = Array.isArray(payload?.data)
     ? payload.data
     : Array.isArray(payload)
       ? payload
       : [];
+  const tableData = normalizePersonalAssetRows(rawTable);
 
   const total = payload?.total ?? initialData?.total ?? 0;
   const totalPages = Math.ceil(total / pageSize);
@@ -186,7 +189,7 @@ export function PersonalAssetsTable({
                     <TableCell>{item.assetName}</TableCell>
                     <TableCell>{item.category}</TableCell>
                     <TableCell className="text-right">
-                      ฿{item.value.toLocaleString()}
+                      ฿{formatLocaleNumber(item.value)}
                     </TableCell>
                     <TableCell className="max-w-[150px] truncate">
                       {item.location}

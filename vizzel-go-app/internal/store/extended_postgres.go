@@ -47,55 +47,11 @@ func (s *postgresStore) ListAssetClasses(ctx context.Context, orgID int64, typeI
 }
 
 func (s *postgresStore) DashboardExtended(ctx context.Context, orgID int64) (*DashboardExtended, error) {
-	var totalValue int64
-	var count int
-	assetTable := `assets`
-	assetWhere := `organization_id = $1 AND status != 'deleted'`
-	if s.tabAssetsEnabled(ctx) {
-		assetTable = `tab_asset`
-		assetWhere = `organization_id = $1 AND deleted_at IS NULL`
+	b, err := s.DashboardBundle(ctx, orgID)
+	if err != nil {
+		return nil, err
 	}
-	_ = s.pool.QueryRow(ctx,
-		fmt.Sprintf(`SELECT COALESCE(SUM(asset_value),0)::bigint, COUNT(*)::int FROM %s WHERE %s`, assetTable, assetWhere),
-		orgID,
-	).Scan(&totalValue, &count)
-	dep := totalValue / 5
-	d := &DashboardExtended{
-		TotalAssetValue: totalValue, AccumulatedDepreciation: dep, NetBookValue: totalValue - dep,
-		TotalAssets: count, NewAssetsThisYear: count / 10, CurrentYearDepreciation: dep / 12,
-		Trend: TrendSeries{Labels: []string{"ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย."}, Values: []int{count / 6, count / 5, count / 4, count / 3, count / 2, count}},
-	}
-	statusQ := `SELECT asset_status_name, COUNT(*)::int FROM assets WHERE organization_id = $1 AND status != 'deleted' GROUP BY asset_status_name`
-	if s.tabAssetsEnabled(ctx) {
-		statusQ = `SELECT st.status, COUNT(*)::int FROM tab_asset a JOIN tab_asset_status st ON st.id = a.asset_status_id WHERE a.organization_id = $1 AND a.deleted_at IS NULL GROUP BY st.status`
-	}
-	rows, _ := s.pool.Query(ctx, statusQ, orgID)
-	if rows != nil {
-		defer rows.Close()
-		for rows.Next() {
-			var name string
-			var c int
-			_ = rows.Scan(&name, &c)
-			d.StatusBreakdown = append(d.StatusBreakdown, StatusSlice{Name: name, Count: c})
-		}
-	}
-	locQ := `SELECT building_name, COUNT(*)::int FROM assets WHERE organization_id = $1 AND status != 'deleted' AND building_name != '' GROUP BY building_name`
-	if s.tabAssetsEnabled(ctx) {
-		locQ = `SELECT COALESCE(addr.building_name,'ไม่ระบุ'), COUNT(*)::int FROM tab_asset a
-			LEFT JOIN LATERAL (SELECT building_name FROM tab_asset_address WHERE asset_id = a.id AND deleted_at IS NULL LIMIT 1) addr ON TRUE
-			WHERE a.organization_id = $1 AND a.deleted_at IS NULL GROUP BY addr.building_name`
-	}
-	rows2, _ := s.pool.Query(ctx, locQ, orgID)
-	if rows2 != nil {
-		defer rows2.Close()
-		for rows2.Next() {
-			var name string
-			var c int
-			_ = rows2.Scan(&name, &c)
-			d.LocationBreakdown = append(d.LocationBreakdown, StatusSlice{Name: name, Count: c})
-		}
-	}
-	return d, nil
+	return &b.Extended, nil
 }
 
 func (s *postgresStore) PersonalDashboard(ctx context.Context, orgID int64, ownerName string) (*PersonalDashboard, error) {

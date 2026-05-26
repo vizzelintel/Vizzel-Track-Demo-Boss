@@ -560,8 +560,9 @@ export function AssetLocationSection({ data }: AssetLocationSectionProps) {
                               dialogPageIndex * dialogPageSize,
                               (dialogPageIndex + 1) * dialogPageSize,
                             )
+                            .filter((asset) => asset != null && asset.id != null)
                             .map((asset, idx) => (
-                              <TableRow key={asset.id}>
+                              <TableRow key={asset.id ?? `row-${idx}`}>
                                 <TableCell className="text-muted-foreground">
                                   {dialogPageIndex * dialogPageSize + idx + 1}
                                 </TableCell>

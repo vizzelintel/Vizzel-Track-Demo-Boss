@@ -1,6 +1,6 @@
 import { useAuth } from "@/context/AuthContext";
 import { apiRequest, type User } from "@/lib/api";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export function useUser() {
   const { user: ctxUser, loading: ctxLoading } = useAuth();
@@ -20,19 +20,22 @@ export function useUser() {
       .finally(() => setLoading(false));
   }, [ctxUser, ctxLoading]);
 
-  const mapped = user
-    ? {
-        ...user,
-        id: user.id,
-        organizationID: user.organization_id ?? user.organizationID,
-        roleID: user.role_id ?? user.roleID,
-        isOrgVerified: true,
-        organizationRelation: {
-          roleID: user.role_id ?? user.roleID ?? 2,
-          organizationID: user.organization_id ?? user.organizationID ?? 1,
-        },
-      }
-    : null;
+  const mapped = useMemo(() => {
+    if (!user) return null;
+    const organizationID = user.organization_id ?? user.organizationID;
+    const roleID = user.role_id ?? user.roleID ?? 2;
+    return {
+      ...user,
+      id: user.id,
+      organizationID,
+      roleID,
+      isOrgVerified: true,
+      organizationRelation: {
+        roleID,
+        organizationID: organizationID ?? 1,
+      },
+    };
+  }, [user]);
 
   return { user: mapped, loading };
 }

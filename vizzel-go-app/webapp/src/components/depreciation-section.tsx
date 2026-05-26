@@ -198,6 +198,7 @@ export function DepreciationSection({
     (url) => apiRequest(url),
     {
       fallbackData: useFallback ? { data } : undefined,
+      revalidateOnMount: !useFallback,
       revalidateOnFocus: false,
       keepPreviousData: true,
     },

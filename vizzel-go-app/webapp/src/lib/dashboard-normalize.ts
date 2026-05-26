@@ -1,5 +1,7 @@
 /** Normalize Nest-compat dashboard payloads for production UI components. */
 
+import { coerceChartDateIso } from "./chart-dates";
+
 export type NewAssetRow = {
   id: number;
   assetNumber: string;
@@ -31,18 +33,45 @@ export type StatusRow = {
 
 export type TrendRow = { date: string; count: number };
 
-export type ValueHistoryRow = { date: string; value: number };
+export type ValueHistoryRow = {
+  date?: string;
+  year?: string;
+  cost: number;
+  netBookValue: number;
+};
+
+export type DashboardInitialData = {
+  summary: Record<string, unknown> | null;
+  trend: TrendRow[];
+  valueHistory: ValueHistoryRow[];
+  status: StatusRow[] | null;
+  depreciation: DepreciationRow[];
+  newAssets: NewAssetRow[];
+  location: LocationRow[];
+};
 
 function asArray<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
 }
 
+function mapTrendRow(item: unknown): TrendRow {
+  const row = item as Record<string, unknown>;
+  const date = coerceChartDateIso(
+    row.date ?? row.label ?? row.period ?? row.month,
+  );
+  return {
+    date,
+    count: Number(row.count ?? row.value ?? 0),
+  };
+}
+
 export function normalizeTrendPayload(raw: unknown): TrendRow[] {
-  if (Array.isArray(raw)) return raw as TrendRow[];
-  if (raw && typeof raw === "object" && "data" in raw) {
-    return asArray<TrendRow>((raw as { data: unknown }).data);
-  }
-  return [];
+  const list = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === "object" && "data" in raw
+      ? asArray((raw as { data: unknown }).data)
+      : [];
+  return list.map(mapTrendRow).filter((r) => r.date !== "");
 }
 
 export function normalizeStatusPayload(raw: unknown): StatusRow[] | null {
@@ -145,11 +174,52 @@ export function normalizeValueHistoryPayload(raw: unknown): ValueHistoryRow[] {
       : [];
   return list.map((item) => {
     const row = item as Record<string, unknown>;
+    const cost = Number(row.cost ?? row.value ?? 0);
+    const netBookValue = Number(
+      row.netBookValue ?? row.net_book_value ?? row.value ?? cost,
+    );
+    const dateRaw = row.date ?? row.period;
+    const dateIso = dateRaw ? coerceChartDateIso(dateRaw) : "";
+    const yearRaw = row.year ?? row.fiscalYear;
+    let year: string | undefined;
+    if (yearRaw != null && yearRaw !== "") {
+      const ys = String(yearRaw).trim();
+      const parsed = coerceChartDateIso(ys);
+      year = parsed
+        ? String(new Date(parsed).getFullYear())
+        : /^\d{4}$/.test(ys)
+          ? ys
+          : undefined;
+    }
     return {
-      date: String(row.date ?? ""),
-      value: Number(row.value ?? row.count ?? 0),
+      date: dateIso || undefined,
+      year,
+      cost,
+      netBookValue,
     };
   });
+}
+
+export function normalizeDashboardInitialData(
+  raw: unknown,
+): DashboardInitialData {
+  const data =
+    raw && typeof raw === "object" && "data" in raw
+      ? (raw as { data: unknown }).data
+      : raw;
+  const obj =
+    data && typeof data === "object"
+      ? (data as Record<string, unknown>)
+      : {};
+  return {
+    summary: normalizeSummaryPayload(obj.summary ?? null),
+    trend: normalizeTrendPayload(obj.trend ?? []),
+    valueHistory: normalizeValueHistoryPayload(obj.valueHistory ?? []),
+    status: normalizeStatusPayload(obj.status ?? null),
+    depreciation: normalizeDepreciationPayload(obj.depreciation ?? []),
+    newAssets: normalizeNewAssetsPayload(obj.newAssets ?? []),
+    location: normalizeLocationPayload(obj.location ?? []),
+  };
 }
 
 export function normalizeSummaryPayload(raw: unknown): Record<string, unknown> | null {

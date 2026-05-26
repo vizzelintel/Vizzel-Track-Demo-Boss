@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/select";
 
 import { TEST_IDS } from '@/components/test-ids';
+import { filterRefRows } from "@/lib/asset-normalize";
 import { apiRequest } from "@/lib/api";
 import { useUser } from "@/hooks/use-user";
 
@@ -242,8 +243,8 @@ export function EditAssetDialog({
                         <SelectValue placeholder="เลือกกลุ่ม" />
                       </SelectTrigger>
                       <SelectContent>
-                        {classes.map((c) => (
-                          <SelectItem key={c.id} value={String(c.id)}>
+                        {filterRefRows(classes).map((c) => (
+                          <SelectItem key={String(c.id)} value={String(c.id)}>
                             {c.className}
                           </SelectItem>
                         ))}

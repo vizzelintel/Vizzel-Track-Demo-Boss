@@ -141,7 +141,9 @@ export function NewAssetsSection({ data }: NewAssetsSectionProps) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {paginatedData.map((asset) => (
+                    {paginatedData
+                      .filter((asset) => asset != null && asset.id != null)
+                      .map((asset) => (
                       <TableRow key={asset.id}>
                         <TableCell className="font-medium">
                           {asset.assetNumber}

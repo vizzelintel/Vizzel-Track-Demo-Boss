@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"time"
 )
 
@@ -112,6 +113,38 @@ func (s *sqliteStore) listRows(ctx context.Context, q string, args ...any) ([]Ro
 
 func (s *sqliteStore) ListUsers(ctx context.Context, orgID int64) ([]Row, error) {
 	return s.listRows(ctx, `SELECT id, COALESCE(display_name, email), email, '', 0, created_at FROM users WHERE organization_id = ?`, orgID)
+}
+
+func (s *sqliteStore) ListOrgUsers(ctx context.Context, orgID int64) ([]OrgUserRow, error) {
+	users, err := s.ListUsers(ctx, orgID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]OrgUserRow, 0, len(users))
+	for _, u := range users {
+		if u.ID <= 0 {
+			continue
+		}
+		name := u.Title
+		surname := ""
+		if parts := strings.Fields(u.Title); len(parts) > 1 {
+			name = parts[0]
+			surname = strings.Join(parts[1:], " ")
+		}
+		out = append(out, OrgUserRow{
+			RelationID:     u.ID,
+			UserID:         u.ID,
+			Username:       u.Subtitle,
+			Name:           name,
+			Surname:        surname,
+			Email:          u.Subtitle,
+			RoleID:         4,
+			Verify:         2,
+			Status:         true,
+			OrganizationID: orgID,
+		})
+	}
+	return out, nil
 }
 
 func (s *sqliteStore) ListDepartments(ctx context.Context, orgID int64) ([]Row, error) {

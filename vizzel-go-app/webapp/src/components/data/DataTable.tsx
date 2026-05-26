@@ -25,6 +25,7 @@ export function DataTable<T extends { id: number }>({
   extraActions,
 }: Props<T>) {
   const hasActions = onEdit || onDelete || extraActions;
+  const safeRows = Array.isArray(rows) ? rows : [];
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
       <table className="w-full text-sm">
@@ -39,14 +40,14 @@ export function DataTable<T extends { id: number }>({
           </tr>
         </thead>
         <tbody>
-          {rows.length === 0 && !loading && (
+          {safeRows.length === 0 && !loading && (
             <tr>
               <td colSpan={columns.length + (hasActions ? 1 : 0)} className="text-muted-foreground p-8 text-center">
                 ไม่พบข้อมูล
               </td>
             </tr>
           )}
-          {rows.map((row) => (
+          {safeRows.map((row) => (
             <tr key={row.id} className="border-t border-border hover:bg-muted/30">
               {columns.map((c) => (
                 <td key={c.key} className="p-3">

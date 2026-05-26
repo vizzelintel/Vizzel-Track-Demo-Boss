@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Eye, EyeOff } from "lucide-react";
 import { TEST_IDS } from "@/components/test-ids";
@@ -24,7 +23,7 @@ function LoginContent() {
     defaultValues: { remember: false },
   });
 
-  const [searchParams] = useSearchParams();
+  const searchParams = useSearchParams();
   const { status } = useSession();
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -164,13 +163,6 @@ function LoginContent() {
           </div>
           <Button type="submit" disabled={isSubmitting} className="mt-4 w-full transition-all hover:scale-[1.02]" data-testid={TEST_IDS.LOGIN.BUTTON_SUBMIT}>
             {isSubmitting ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
-          </Button>
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-            <div className="relative flex justify-center text-xs uppercase"><span className="bg-background text-muted-foreground px-2">หรือ</span></div>
-          </div>
-          <Button type="button" variant="outline" onClick={() => toast.info("Google Login ยังไม่พร้อมใช้งาน")} className="w-full cursor-pointer transition-all hover:scale-[1.02]" data-testid={TEST_IDS.LOGIN.BUTTON_GOOGLE}>
-            Sign in with Google
           </Button>
           <p className="text-muted-foreground mt-4 text-center text-sm">
             หากคุณยังไม่มีบัญชี{" "}

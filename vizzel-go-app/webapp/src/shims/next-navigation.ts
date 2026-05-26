@@ -1,4 +1,9 @@
-import { useLocation, useNavigate } from "react-router-dom";
+import { useMemo } from "react";
+import {
+  useLocation,
+  useNavigate,
+  useSearchParams as useRRSearchParams,
+} from "react-router-dom";
 
 export function usePathname() {
   return useLocation().pathname;
@@ -10,9 +15,13 @@ export function useRouter() {
     push: (url: string) => navigate(url),
     replace: (url: string) => navigate(url, { replace: true }),
     refresh: () => {
-      /* SPA: no server refresh — remount via soft navigation */
+      /* SPA: no server refresh */
     },
   };
 }
 
-export { useSearchParams } from "react-router-dom";
+/** Next.js-compatible: returns URLSearchParams with `.get()`, not a tuple. */
+export function useSearchParams() {
+  const [params] = useRRSearchParams();
+  return useMemo(() => params, [params]);
+}

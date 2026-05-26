@@ -66,6 +66,15 @@ import { AssetGalleryTab } from "./asset-gallery-tab";
 import { useOrganizationMenus } from "@/hooks/use-organization-menus";
 import Link from "next/link";
 import { TEST_IDS } from "@/components/test-ids";
+import {
+  filterRefRows,
+  lovOptionLabel,
+  normalizeOrgUserRows,
+} from "@/lib/asset-normalize";
+import {
+  assetImageUrl,
+  resolveHolderOrgLabels,
+} from "@/lib/org-hierarchy";
 
 interface AssetDialogProps {
   open: boolean;
@@ -76,9 +85,9 @@ interface AssetDialogProps {
   preloadedDependencies?: { types: any[]; classes: any[] } | null;
 }
 
-const uniqueById = (arr: any[]) => {
+const uniqueById = (arr: unknown[]) => {
   const map = new Map();
-  for (const item of arr) {
+  for (const item of filterRefRows(arr)) {
     // Deduplicate by status name if available, fallback to ID
     if (item?.status) {
       const key = String(item.status).trim();
@@ -173,6 +182,14 @@ export function AssetDialog({
   }) as UseFormReturn<AssetFormValues>;
 
   const { isDirty } = form.formState;
+  const watchedUserID = form.watch("userID");
+  const holderOrg = resolveHolderOrgLabels(
+    watchedUserID,
+    usersList,
+    institutes,
+    departments,
+    sections,
+  );
 
 
   // --- Live Calculation Logic (Depreciation & Residual Value) ---
@@ -208,7 +225,9 @@ export function AssetDialog({
   };
 
   const liveDepreciation = calculateLiveDepreciation();
-  const liveResidualValue = Number(watchedValue || 0) - liveDepreciation;
+  const totalValue = Number(watchedValue || 0);
+  const liveResidualValue =
+    totalValue <= 1 ? totalValue : Math.max(1, totalValue - liveDepreciation);
 
   // Sync live calculations to form state so they are sent on submit
   useEffect(() => {
@@ -242,12 +261,28 @@ export function AssetDialog({
 
       // ⭐ Use Pre-fetched Data if available
       if (initialReferenceData) {
-        setCategories(initialReferenceData.categories || []);
+        setCategories(filterRefRows(initialReferenceData.categories));
         setStatuses(uniqueById(initialReferenceData.statuses || []));
-        setBuildings(initialReferenceData.buildings || []);
-        setUsersList(initialReferenceData.users || []);
-        setGetByOptions(initialReferenceData.getBy || []);
-        setSourceFundOptions(initialReferenceData.sourceFund || []);
+        setBuildings(filterRefRows(initialReferenceData.buildings));
+        setUsersList(
+          normalizeOrgUserRows(
+            Array.isArray(initialReferenceData.users)
+              ? initialReferenceData.users
+              : initialReferenceData.users?.data,
+          ),
+        );
+        setGetByOptions(
+          filterRefRows(initialReferenceData.getBy).map((row) => ({
+            ...row,
+            label: lovOptionLabel(row),
+          })),
+        );
+        setSourceFundOptions(
+          filterRefRows(initialReferenceData.sourceFund).map((row) => ({
+            ...row,
+            label: lovOptionLabel(row),
+          })),
+        );
 
         if (
           initialReferenceData.rooms &&
@@ -289,10 +324,10 @@ export function AssetDialog({
           fetcher(`/organization/section/get?organizationID=${orgID}`),
         ]);
 
-        setCategories(cats);
+        setCategories(filterRefRows(cats));
         setStatuses(uniqueById(stats));
-        setBuildings(blds);
-        setUsersList(usersData.data || []);
+        setBuildings(filterRefRows(blds));
+        setUsersList(normalizeOrgUserRows(usersData.data || usersData));
         setGetByOptions(getByRes);
         setSourceFundOptions(sourceFundRes);
         setDepartments(deptsRes.departments || deptsRes || []);
@@ -344,7 +379,7 @@ export function AssetDialog({
       const res = await fetcher(
         `/asset/type/get_all?organizationID=${orgID}&categoryID=${catID}`,
       );
-      setTypes(res);
+      setTypes(filterRefRows(res));
     }
   };
 
@@ -359,7 +394,7 @@ export function AssetDialog({
       const res = await fetcher(
         `/asset/class/get_all?organizationID=${orgID}&typeID=${typeID}`,
       );
-      setClasses(res);
+      setClasses(filterRefRows(res));
     }
   };
 
@@ -442,8 +477,8 @@ export function AssetDialog({
 
         // Load Dependent Dropdowns
         if (preloadedDependencies) {
-          setTypes(preloadedDependencies.types || []);
-          setClasses(preloadedDependencies.classes || []);
+          setTypes(filterRefRows(preloadedDependencies.types));
+          setClasses(filterRefRows(preloadedDependencies.classes));
           // Preloaded Rooms
           // Preloaded Rooms check removed as per type definition and new logic
           // We rely purely on allRooms filtering below
@@ -453,13 +488,13 @@ export function AssetDialog({
             const typesData = await fetcher(
               `/asset/type/get_all?organizationID=${orgID}&categoryID=${initialData.categoryID}`,
             );
-            setTypes(typesData);
+            setTypes(filterRefRows(typesData));
           }
           if (initialData.typeID && orgID) {
             const classesData = await fetcher(
               `/asset/class/get_all?organizationID=${orgID}&typeID=${initialData.typeID}`,
             );
-            setClasses(classesData);
+            setClasses(filterRefRows(classesData));
           }
         }
 
@@ -485,7 +520,7 @@ export function AssetDialog({
             if (cleanPath.startsWith("/")) cleanPath = cleanPath.substring(1);
             return {
               id: id,
-              url: `${process.env.NEXT_PUBLIC_API_URL}/${cleanPath}`,
+              url: assetImageUrl(path),
             };
           });
           setPreviewImages(existingImages);
@@ -580,29 +615,15 @@ export function AssetDialog({
         ? `/asset/update/${initialData.id}`
         : `/asset/create`;
       const method = initialData ? "PATCH" : "POST";
-      const session = await import("next-auth/react").then((m) =>
-        m.getSession(),
-      );
-      const token = session?.accessToken;
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${url}`, {
+      const resJson = await apiRequest<{
+        data?: { id?: number; asset?: { id?: number } };
+        id?: number;
+      }>(url, {
         method,
-        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        const errorMessage = errorData.message || "Failed to save asset";
-        const displayMessage = Array.isArray(errorMessage)
-          ? errorMessage.join(", ")
-          : errorMessage;
-
-        toast.error(`บันทึกข้อมูลไม่สำเร็จ: ${displayMessage}`);
-        return;
-      }
-
-      const resJson = await res.json();
       const savedAssetID =
         resJson.data?.id ||
         resJson.data?.asset?.id ||
@@ -787,9 +808,9 @@ export function AssetDialog({
                                     </SelectTrigger>
                                   </FormControl>
                                   <SelectContent>
-                                    {usersList.map((u: any) => (
+                                    {normalizeOrgUserRows(usersList).map((u) => (
                                       <SelectItem
-                                        key={u.user.id}
+                                        key={String(u.user.id)}
                                         value={String(u.user.id)}
                                       >
                                         {u.user.name} {u.user.surname} (
@@ -875,9 +896,9 @@ export function AssetDialog({
                                       </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                      {buildings.map((b: any) => (
+                                      {filterRefRows(buildings).map((b) => (
                                         <SelectItem
-                                          key={b.id}
+                                          key={String(b.id)}
                                           value={String(b.id)}
                                         >
                                           {b.buildingName}
@@ -923,7 +944,7 @@ export function AssetDialog({
                                       </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                      {rooms.map((r: any) => {
+                                      {filterRefRows(rooms).map((r) => {
                                         const rNumber =
                                           r.roomNumber || r.room_number;
                                         const rName = r.roomName || r.room_name;
@@ -947,122 +968,26 @@ export function AssetDialog({
 
                           </div>
 
-                          {/* Hierarchy Derived from User */}
-                          <div
-                            className={`grid grid-cols-1 gap-4 ${
-                              user?.organizationRelation?.isInstitute &&
-                              user?.organizationRelation?.isSection
-                                ? "md:grid-cols-3"
-                                : user?.organizationRelation?.isInstitute ||
-                                    user?.organizationRelation?.isSection
-                                  ? "md:grid-cols-2"
-                                  : "md:grid-cols-1"
-                            }`}
-                          >
-                            {user?.organizationRelation?.isInstitute && (
-                              <FormItem>
-                                <FormLabel>สำนัก</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    disabled
-                                    value={(() => {
-                                      const uid = form.watch("userID");
-                                      if (!uid) return "-";
-                                      const u = usersList.find(
-                                        (u: any) =>
-                                          String(u.user?.id) === String(uid),
-                                      );
-                                      if (!u) return "-";
-
-                                      if (u.institute?.name) return u.institute.name;
-                                      if (u.institute?.institute_name) return u.institute.institute_name;
-
-                                      if (u.instituteID) {
-                                        const inst = institutes.find(
-                                          (i: any) => i.id === u.instituteID,
-                                        );
-                                        if (inst) return inst.institute_name || inst.instituteName;
-                                      }
-
-                                      if (u.deptID) {
-                                        const dept = departments.find(
-                                          (d: any) => d.id === u.deptID,
-                                        );
-                                        if (dept && dept.instituteID) {
-                                          const inst = institutes.find(
-                                            (i: any) => i.id === dept.instituteID,
-                                          );
-                                          if (inst) return inst.institute_name || inst.instituteName;
-                                        }
-                                      }
-                                      
-                                      return "-";
-                                    })()}
-                                  />
-                                </FormControl>
-                              </FormItem>
-                            )}
-
+                          {/* Hierarchy derived from holder (read-only) */}
+                          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                             <FormItem>
-                              <FormLabel>แผนก</FormLabel>
+                              <FormLabel>สำนัก</FormLabel>
                               <FormControl>
-                                <Input
-                                  disabled
-                                  value={(() => {
-                                    const uid = form.watch("userID");
-                                    if (!uid) return "-";
-                                    const u = usersList.find(
-                                      (u: any) =>
-                                        String(u.user?.id) === String(uid),
-                                    );
-                                    if (!u) return "-";
-                                    if (u.department?.name)
-                                      return u.department.name;
-
-                                    const deptID = u.deptID;
-                                    if (!deptID) return "-";
-                                    const dept = departments.find(
-                                      (d: any) => d.id === deptID,
-                                    );
-                                    return dept
-                                      ? dept.dept_name || dept.deptName
-                                      : "-";
-                                  })()}
-                                />
+                                <Input disabled value={holderOrg.institute} />
                               </FormControl>
                             </FormItem>
-
-                            {user?.organizationRelation?.isSection && (
-                              <FormItem>
-                                <FormLabel>ฝ่าย</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    disabled
-                                    value={(() => {
-                                      const uid = form.watch("userID");
-                                      if (!uid) return "-";
-                                      const u = usersList.find(
-                                        (u: any) =>
-                                          String(u.user?.id) === String(uid),
-                                      );
-                                      if (!u) return "-";
-
-                                      if (u.section?.name)
-                                        return u.section.name;
-
-                                      const secID = u.sectionID;
-                                      if (!secID) return "-";
-                                      const sec = sections.find(
-                                        (s: any) => s.id === secID,
-                                      );
-                                      return sec
-                                        ? sec.section_name || sec.sectionName
-                                        : "-";
-                                    })()}
-                                  />
-                                </FormControl>
-                              </FormItem>
-                            )}
+                            <FormItem>
+                              <FormLabel>ฝ่าย</FormLabel>
+                              <FormControl>
+                                <Input disabled value={holderOrg.division} />
+                              </FormControl>
+                            </FormItem>
+                            <FormItem>
+                              <FormLabel>งาน</FormLabel>
+                              <FormControl>
+                                <Input disabled value={holderOrg.work} />
+                              </FormControl>
+                            </FormItem>
                           </div>
                         </CardContent>
                       </Card>
@@ -1339,12 +1264,14 @@ export function AssetDialog({
                                     </SelectTrigger>
                                   </FormControl>
                                   <SelectContent>
-                                    {categories.map((c: any) => (
+                                    {filterRefRows(categories).map((c) => (
                                       <SelectItem
-                                        key={c.id}
+                                        key={String(c.id)}
                                         value={String(c.id)}
                                       >
-                                        {c.categoryName}
+                                        {String(
+                                          c.categoryName ?? c.title ?? "",
+                                        )}
                                       </SelectItem>
                                     ))}
                                   </SelectContent>
@@ -1376,9 +1303,9 @@ export function AssetDialog({
                                     </SelectTrigger>
                                   </FormControl>
                                   <SelectContent>
-                                    {types.map((t: any) => (
+                                    {filterRefRows(types).map((t) => (
                                       <SelectItem
-                                        key={t.id}
+                                        key={String(t.id)}
                                         value={String(t.id)}
                                       >
                                         {t.typeName}
@@ -1413,9 +1340,9 @@ export function AssetDialog({
                                     </SelectTrigger>
                                   </FormControl>
                                   <SelectContent>
-                                    {classes.map((c: any) => (
+                                    {filterRefRows(classes).map((c) => (
                                       <SelectItem
-                                        key={c.id}
+                                        key={String(c.id)}
                                         value={String(c.id)}
                                       >
                                         {c.className}
@@ -1446,11 +1373,9 @@ export function AssetDialog({
                                     </SelectTrigger>
                                   </FormControl>
                                   <SelectContent>
-                                    {statuses
-                                      .filter((s: any) => !!s)
-                                      .map((s: any) => (
+                                    {filterRefRows(statuses).map((s) => (
                                         <SelectItem
-                                          key={s.id}
+                                          key={String(s.id)}
                                           value={String(s.id)}
                                           disabled={
                                             Boolean(s.isLocked) &&
@@ -1498,12 +1423,12 @@ export function AssetDialog({
                                     </SelectTrigger>
                                   </FormControl>
                                   <SelectContent>
-                                    {getByOptions.map((o: any) => (
+                                    {filterRefRows(getByOptions).map((o) => (
                                       <SelectItem
-                                        key={o.id}
+                                        key={String(o.id)}
                                         value={String(o.id)}
                                       >
-                                        {o.label}
+                                        {lovOptionLabel(o)}
                                       </SelectItem>
                                     ))}
                                   </SelectContent>
@@ -1554,12 +1479,12 @@ export function AssetDialog({
                                     </SelectTrigger>
                                   </FormControl>
                                   <SelectContent>
-                                    {sourceFundOptions.map((o: any) => (
+                                    {filterRefRows(sourceFundOptions).map((o) => (
                                       <SelectItem
-                                        key={o.id}
+                                        key={String(o.id)}
                                         value={String(o.id)}
                                       >
-                                        {o.label}
+                                        {lovOptionLabel(o)}
                                       </SelectItem>
                                     ))}
                                   </SelectContent>

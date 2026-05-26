@@ -68,41 +68,11 @@ func (s *sqliteStore) GetAuditJob(ctx context.Context, orgID, id int64) (*Row, e
 }
 
 func (s *sqliteStore) DashboardExtended(ctx context.Context, orgID int64) (*DashboardExtended, error) {
-	var totalValue int64
-	var count int
-	_ = s.db.QueryRowContext(ctx, `SELECT COALESCE(SUM(asset_value),0), COUNT(*) FROM assets WHERE organization_id = ? AND status != 'deleted'`, orgID).Scan(&totalValue, &count)
-	dep := totalValue / 5
-	net := totalValue - dep
-	d := &DashboardExtended{
-		TotalAssetValue:         totalValue,
-		AccumulatedDepreciation: dep,
-		NetBookValue:            net,
-		TotalAssets:             count,
-		NewAssetsThisYear:       count / 10,
-		CurrentYearDepreciation: dep / 12,
-		Trend:                   TrendSeries{Labels: []string{"ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย."}, Values: []int{count / 6, count / 5, count / 4, count / 3, count / 2, count}},
+	b, err := s.DashboardBundle(ctx, orgID)
+	if err != nil {
+		return nil, err
 	}
-	rows, _ := s.db.QueryContext(ctx, `SELECT asset_status_name, COUNT(*) FROM assets WHERE organization_id = ? AND status != 'deleted' GROUP BY asset_status_name`, orgID)
-	if rows != nil {
-		defer rows.Close()
-		for rows.Next() {
-			var name string
-			var c int
-			_ = rows.Scan(&name, &c)
-			d.StatusBreakdown = append(d.StatusBreakdown, StatusSlice{Name: name, Count: c})
-		}
-	}
-	rows2, _ := s.db.QueryContext(ctx, `SELECT building_name, COUNT(*) FROM assets WHERE organization_id = ? AND status != 'deleted' AND building_name != '' GROUP BY building_name`, orgID)
-	if rows2 != nil {
-		defer rows2.Close()
-		for rows2.Next() {
-			var name string
-			var c int
-			_ = rows2.Scan(&name, &c)
-			d.LocationBreakdown = append(d.LocationBreakdown, StatusSlice{Name: name, Count: c})
-		}
-	}
-	return d, nil
+	return &b.Extended, nil
 }
 
 func (s *sqliteStore) PersonalDashboard(ctx context.Context, orgID int64, ownerName string) (*PersonalDashboard, error) {

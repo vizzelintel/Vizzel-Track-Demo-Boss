@@ -2,9 +2,16 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { apiRequest } from "@/lib/api";
 import ClientAssetsPage from "./assets/list/client-page";
+import {
+  extractAssetListPayload,
+  normalizeAssetRows,
+  sanitizeReferenceData,
+} from "@/lib/asset-normalize";
+import type { AssetData } from "./assets/list/types";
+import { PageLoader } from "@/components/PageLoader";
 
 type InitialPayload = {
-  initialData: { data: unknown[]; total: number };
+  initialData: { data: AssetData[]; total: number };
   initialReferenceData: Record<string, unknown>;
 };
 
@@ -20,57 +27,29 @@ export function AssetsListPage() {
       return;
     }
     const orgID = user.organization_id;
+    setLoading(true);
     apiRequest<Record<string, unknown>>(`/asset/initial-data/${orgID}/1/10`)
       .then((data) => {
-        const assets = (data.assets as { data?: unknown[]; total?: number }) ?? {};
+        const assets = extractAssetListPayload(data.assets);
+        const ref = sanitizeReferenceData(data as Record<string, unknown>);
         setPayload({
           initialData: {
-            data: assets.data ?? [],
-            total: assets.total ?? 0,
+            data: normalizeAssetRows(assets.data),
+            total: assets.total,
           },
-          initialReferenceData: {
-            categories: data.categories ?? [],
-            statuses: data.statuses ?? [],
-            buildings: data.buildings ?? [],
-            users: (data.users as { data?: unknown[] })?.data ?? [],
-            getBy: data.getBy ?? [],
-            sourceFund: data.sourceFund ?? [],
-            rooms: data.rooms ?? [],
-            departments: data.departments ?? [],
-            institutes: data.institutes ?? [],
-            sections: data.sections ?? [],
-          },
+          initialReferenceData: ref,
         });
       })
       .catch(() => {
         setPayload({
           initialData: { data: [], total: 0 },
-          initialReferenceData: {
-            categories: [],
-            statuses: [],
-            buildings: [],
-            users: [],
-            getBy: [],
-            sourceFund: [],
-            rooms: [],
-            departments: [],
-            institutes: [],
-            sections: [],
-          },
+          initialReferenceData: sanitizeReferenceData({}),
         });
       })
       .finally(() => setLoading(false));
   }, [user, authLoading]);
 
-  if (authLoading || loading) {
-    return (
-      <div className="text-muted-foreground flex flex-1 items-center justify-center p-8">
-        กำลังโหลดรายการสินทรัพย์...
-      </div>
-    );
-  }
-
-  if (!payload) {
+  if (!authLoading && !user?.organization_id) {
     return (
       <div className="text-muted-foreground flex flex-1 items-center justify-center p-8">
         ไม่พบข้อมูลองค์กร
@@ -78,8 +57,13 @@ export function AssetsListPage() {
     );
   }
 
+  if (authLoading || loading || !payload) {
+    return <PageLoader />;
+  }
+
   return (
     <ClientAssetsPage
+      bootstrapLoading={false}
       initialData={payload.initialData}
       initialReferenceData={payload.initialReferenceData}
     />

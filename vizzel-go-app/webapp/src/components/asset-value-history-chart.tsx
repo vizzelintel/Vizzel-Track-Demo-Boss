@@ -7,6 +7,8 @@ import { LineChart as LineChartIcon, Loader2 } from "lucide-react";
 
 import { formatCurrencyCompact } from "@/lib/utils";
 import { apiRequest } from "@/lib/api";
+import { parseChartDate, toBuddhistYear } from "@/lib/chart-dates";
+import { normalizeValueHistoryPayload } from "@/lib/dashboard-normalize";
 import type {
   AssetValueHistoryGranularity,
   AssetValueHistoryRange,
@@ -145,19 +147,17 @@ interface AssetValueHistoryChartProps {
   initialRangeId?: RangeOptionId;
 }
 
-function toBuddhistYear(year: number): number {
-  return year + 543;
-}
-
 function formatTickLabel(
   iso: string | undefined,
   fallbackYear: string | undefined,
   granularity: AssetValueHistoryGranularity,
 ): string {
   if (!iso) {
-    return fallbackYear ? `ปี ${toBuddhistYear(Number(fallbackYear))}` : "";
+    const y = fallbackYear ? Number(fallbackYear) : NaN;
+    return Number.isFinite(y) ? `ปี ${toBuddhistYear(y >= 2400 ? y - 543 : y)}` : "";
   }
-  const d = new Date(iso);
+  const d = parseChartDate(iso);
+  if (!d) return iso;
   const day = d.getDate();
   const monthShort = d.toLocaleDateString("th-TH", { month: "short" });
   const yearBE = toBuddhistYear(d.getFullYear());
@@ -189,11 +189,13 @@ function formatFullDateLabel(
   granularity: AssetValueHistoryGranularity,
 ): string {
   if (!iso) {
-    return fallbackYear
-      ? `ปีงบประมาณ ${toBuddhistYear(Number(fallbackYear))}`
+    const y = fallbackYear ? Number(fallbackYear) : NaN;
+    return Number.isFinite(y)
+      ? `ปีงบประมาณ ${toBuddhistYear(y >= 2400 ? y - 543 : y)}`
       : "";
   }
-  const d = new Date(iso);
+  const d = parseChartDate(iso);
+  if (!d) return iso;
   const yearBE = toBuddhistYear(d.getFullYear());
   const full = d.toLocaleDateString("th-TH", {
     day: "numeric",
@@ -258,6 +260,7 @@ export function AssetValueHistoryChart({
     (url) => apiRequest(url),
     {
       fallbackData: useFallback ? { data: initialData } : undefined,
+      revalidateOnMount: !useFallback,
       revalidateOnFocus: false,
       keepPreviousData: true,
     },
@@ -265,7 +268,7 @@ export function AssetValueHistoryChart({
 
   const chartData: ValueHistoryPoint[] = React.useMemo(() => {
     const list = res?.data ?? (useFallback ? initialData : []) ?? [];
-    return Array.isArray(list) ? list : [];
+    return normalizeValueHistoryPayload(list);
   }, [res, initialData, useFallback]);
 
   const isEmpty =

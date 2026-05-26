@@ -38,7 +38,7 @@ export const columns: ColumnDef<AssetData>[] = [
         onCheckedChange={(value) => row.toggleSelected(!!value)}
         aria-label="เลือกแถว"
         className="translate-y-[2px]"
-        data-testid={TEST_IDS.TABLE.CHECKBOX_ROW((row.original as any).id)}
+        data-testid={TEST_IDS.TABLE.CHECKBOX_ROW((row.original as AssetData).id ?? 0)}
       />
     ),
     enableSorting: false,

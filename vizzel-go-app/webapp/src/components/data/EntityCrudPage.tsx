@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiRequest } from "@/lib/api";
+import { unwrapListRows } from "@/lib/list-response";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,8 +42,8 @@ export function EntityCrudPage({
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiRequest<{ data: ListRow[] }>(listEndpoint);
-      setRows(res.data);
+      const res = await apiRequest<unknown>(listEndpoint);
+      setRows(unwrapListRows(res));
     } finally {
       setLoading(false);
     }
@@ -54,7 +55,9 @@ export function EntityCrudPage({
 
   useEffect(() => {
     if (parentField) {
-      apiRequest<{ data: ListRow[] }>(parentField.listEndpoint).then((r) => setParents(r.data));
+      apiRequest<unknown>(parentField.listEndpoint).then((r) =>
+        setParents(unwrapListRows(r)),
+      );
     }
   }, [parentField]);
 

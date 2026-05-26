@@ -81,35 +81,44 @@ func (h *Handler) buildCompatReference(ctx context.Context, orgID int64) map[str
 	}
 	cats := make([]map[string]any, 0, len(ref.Categories))
 	for _, r := range ref.Categories {
-		cats = append(cats, rowToCategory(r))
+		if rowIDValid(r) {
+			cats = append(cats, rowToCategory(r))
+		}
 	}
 	types := make([]map[string]any, 0, len(ref.Types))
 	for _, r := range ref.Types {
-		types = append(types, rowToType(r))
+		if rowIDValid(r) {
+			types = append(types, rowToType(r))
+		}
 	}
 	classes := make([]map[string]any, 0, len(ref.Classes))
 	for _, r := range ref.Classes {
-		classes = append(classes, rowToClass(r))
+		if rowIDValid(r) {
+			classes = append(classes, rowToClass(r))
+		}
 	}
 	statuses := make([]map[string]any, 0, len(ref.Statuses))
 	for _, r := range ref.Statuses {
-		statuses = append(statuses, rowToStatus(r))
+		if rowIDValid(r) {
+			statuses = append(statuses, rowToStatus(r))
+		}
 	}
 	buildings, _ := h.store.ListBuildings(ctx, orgID)
 	bld := make([]map[string]any, 0, len(buildings))
 	for _, r := range buildings {
-		bld = append(bld, rowToBuilding(r))
+		if rowIDValid(r) {
+			bld = append(bld, rowToBuilding(r))
+		}
 	}
 	rooms, _ := h.store.ListRooms(ctx, orgID)
 	rms := make([]map[string]any, 0, len(rooms))
 	for _, r := range rooms {
-		rms = append(rms, rowToRoom(r))
+		if rowIDValid(r) {
+			rms = append(rms, rowToRoom(r))
+		}
 	}
-	users, _ := h.store.ListUsers(ctx, orgID)
-	usr := make([]map[string]any, 0, len(users))
-	for _, r := range users {
-		usr = append(usr, rowToUser(r))
-	}
+	orgUsers, _ := h.store.ListOrgUsers(ctx, orgID)
+	usr := orgUsersToMaps(orgUsers)
 	depts, _ := h.store.ListDepartments(ctx, orgID)
 	inst, _ := h.store.ListInstitutes(ctx, orgID)
 	secs, _ := h.store.ListSections(ctx, orgID)
@@ -123,7 +132,7 @@ func (h *Handler) buildCompatReference(ctx context.Context, orgID int64) map[str
 		"users":       map[string]any{"data": usr, "total": len(usr)},
 		"getBy":       lovRowsToMaps(mustLOV(h, ctx, true)),
 		"sourceFund":  lovRowsToMaps(mustLOV(h, ctx, false)),
-		"departments": rowsToNamed(depts, "deptName"),
+		"departments": departmentsToMaps(depts),
 		"institutes":  rowsToNamed(inst, "institute_name"),
 		"sections":    rowsToNamed(secs, "section_name"),
 	}
@@ -179,7 +188,10 @@ func (h *Handler) CompatAssetInitialData(w http.ResponseWriter, r *http.Request)
 		orgID = claims.OrganizationID
 	}
 	refBundle := h.buildCompatReference(r.Context(), orgID)
-	result, _ := h.store.ListAssetsPaged(r.Context(), orgID, page, pageSize, store.AssetFilter{})
+	result, err := h.store.ListAssetsPaged(r.Context(), orgID, page, pageSize, store.AssetFilter{})
+	if err != nil || result == nil {
+		result = &store.AssetListResult{Data: []store.Asset{}, Total: 0}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"assets": map[string]any{
 			"data":  toCompatAssets(result.Data),
@@ -247,6 +259,7 @@ func (h *Handler) CompatAssetCreate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
+	h.enrichAssetInput(r.Context(), claims.OrganizationID, &in)
 	a, err := h.store.CreateAsset(r.Context(), claims.OrganizationID, in)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "create failed")
@@ -267,6 +280,7 @@ func (h *Handler) CompatAssetUpdate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
+	h.enrichAssetInput(r.Context(), claims.OrganizationID, &in)
 	if err := h.store.UpdateAsset(r.Context(), claims.OrganizationID, id, in); err != nil {
 		writeError(w, http.StatusInternalServerError, "update failed")
 		return
@@ -321,7 +335,9 @@ func (h *Handler) CompatCategories(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]map[string]any, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, rowToCategory(row))
+		if rowIDValid(row) {
+			out = append(out, rowToCategory(row))
+		}
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -340,7 +356,9 @@ func (h *Handler) CompatTypes(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]map[string]any, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, rowToType(row))
+		if rowIDValid(row) {
+			out = append(out, rowToType(row))
+		}
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -359,7 +377,9 @@ func (h *Handler) CompatClasses(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]map[string]any, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, rowToClass(row))
+		if rowIDValid(row) {
+			out = append(out, rowToClass(row))
+		}
 	}
 	writeJSON(w, http.StatusOK, out)
 }

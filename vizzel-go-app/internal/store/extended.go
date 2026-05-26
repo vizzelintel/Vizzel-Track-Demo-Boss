@@ -13,7 +13,9 @@ type AssetInput struct {
 	RoomName        string `json:"room_name"`
 	OwnerName       string `json:"owner_name"`
 	AssetStatusName string `json:"asset_status_name"`
+	AssetStatusID   int64  `json:"asset_status_id"`
 	AssetValue      int64  `json:"asset_value"`
+	UserID          int64  `json:"user_id"`
 }
 
 type DashboardExtended struct {

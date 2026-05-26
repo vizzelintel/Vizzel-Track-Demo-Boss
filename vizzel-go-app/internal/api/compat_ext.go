@@ -66,6 +66,9 @@ func MountCompatExtended(r chi.Router, h *Handler) {
 	r.Post("/organization/assign_role", h.OrgAssignRole)
 	r.Post("/organization/verify", h.OrgVerify)
 	r.Get("/organization/get/{page}/{pageSize}", h.OrgListPaged)
+	r.Get("/organization/department/get", h.OrgDepartmentsGet)
+	r.Get("/organization/institute/get", h.OrgInstitutesGet)
+	r.Get("/organization/section/get", h.OrgSectionsGet)
 
 	// Facility
 	r.Get("/facility/building/get/{orgID}", h.FacilityBuildings)
@@ -459,7 +462,10 @@ func mustLOV(h *Handler, ctx context.Context, getBy bool) []store.Row {
 func lovRowsToMaps(rows []store.Row) []map[string]any {
 	out := make([]map[string]any, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, map[string]any{"id": r.ID, "name": r.Title})
+		if !rowIDValid(r) {
+			continue
+		}
+		out = append(out, map[string]any{"id": r.ID, "name": r.Title, "label": r.Title})
 	}
 	return out
 }
@@ -509,6 +515,36 @@ func (h *Handler) AssetRepairUpdate(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) AssetRepairDelete(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (h *Handler) OrgDepartmentsGet(w http.ResponseWriter, r *http.Request) {
+	orgID, ok := orgIDFromQueryOrClaims(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	depts, _ := h.store.ListDepartments(r.Context(), orgID)
+	writeJSON(w, http.StatusOK, map[string]any{"departments": departmentsToMaps(depts)})
+}
+
+func (h *Handler) OrgInstitutesGet(w http.ResponseWriter, r *http.Request) {
+	orgID, ok := orgIDFromQueryOrClaims(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	inst, _ := h.store.ListInstitutes(r.Context(), orgID)
+	writeJSON(w, http.StatusOK, rowsToNamed(inst, "institute_name"))
+}
+
+func (h *Handler) OrgSectionsGet(w http.ResponseWriter, r *http.Request) {
+	orgID, ok := orgIDFromQueryOrClaims(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	secs, _ := h.store.ListSections(r.Context(), orgID)
+	writeJSON(w, http.StatusOK, rowsToNamed(secs, "section_name"))
 }
 
 func (h *Handler) OrgRecordLimit(w http.ResponseWriter, r *http.Request) {
@@ -680,8 +716,11 @@ func (h *Handler) DashboardInitialData(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	ext, _ := h.store.DashboardExtended(r.Context(), orgID)
-	writeJSON(w, http.StatusOK, map[string]any{"data": summaryPayload(ext)})
+	b, ok2 := h.writeDashboardBundle(w, r, orgID)
+	if !ok2 {
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": dashboardInitialPayload(b)})
 }
 
 func (h *Handler) DashboardRepairSummary(w http.ResponseWriter, r *http.Request) {

@@ -14,6 +14,11 @@ import { apiRequest } from "@/lib/api";
 import { useUser } from "@/hooks/use-user";
 import { useDebounce } from "@/hooks/use-debounce";
 import { AssetData } from "./types";
+import {
+  extractAssetListPayload,
+  filterRefRows,
+  normalizeAssetRows,
+} from "@/lib/asset-normalize";
 import { getSession } from "next-auth/react";
 
 import {
@@ -36,6 +41,7 @@ interface ClientAssetsPageProps {
     total: number;
   };
   initialReferenceData?: any; // We will define proper type later or in a shared type file if strictly needed
+  bootstrapLoading?: boolean;
 }
 
 import { useSearchParams, useRouter } from "next/navigation";
@@ -43,6 +49,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 export default function ClientAssetsPage({
   initialData,
   initialReferenceData,
+  bootstrapLoading = false,
 }: ClientAssetsPageProps) {
   const { user, loading: userLoading } = useUser();
   const router = useRouter();
@@ -141,6 +148,18 @@ export default function ClientAssetsPage({
     }
   }
 
+  const hasBootstrapRows =
+    (initialData?.total ?? 0) > 0 || (initialData?.data?.length ?? 0) > 0;
+
+  const useInitialFallback =
+    hasBootstrapRows &&
+    !debouncedSearch &&
+    !statusParam &&
+    page === 1 &&
+    categoryFilter.length === 0 &&
+    typeFilter.length === 0 &&
+    classFilter.length === 0;
+
   const {
     data: result,
     error,
@@ -148,18 +167,32 @@ export default function ClientAssetsPage({
     isValidating,
     mutate: refresh,
   } = useSWR(key, fetcher, {
-    fallbackData:
-      !debouncedSearch && !statusParam && page === 1 ? initialData : undefined, // Only use initial data for first page w/o search or status filter
+    fallbackData: useInitialFallback ? initialData : undefined,
     keepPreviousData: true,
     revalidateOnFocus: false,
-    // revalidateIfStale: false, // ❌ REMOVED: Need to revalidate if params change!
+    revalidateOnMount: !useInitialFallback,
+    dedupingInterval: 5000,
   });
 
-  const data = result?.data || [];
-  const total = result?.total || 0;
+  const listPayload = React.useMemo(
+    () =>
+      extractAssetListPayload(
+        result ??
+          (useInitialFallback || (hasBootstrapRows && (userLoading || isLoading))
+            ? initialData
+            : undefined),
+      ),
+    [result, useInitialFallback, hasBootstrapRows, userLoading, isLoading, initialData],
+  );
+  const data = React.useMemo(
+    () => normalizeAssetRows(listPayload.data),
+    [listPayload],
+  );
+  const total = listPayload.total;
   // If we have data (even from fallback), we are not "loading" in a blocking way
   // BUT we want to show skeleton during page/search change (isValidating) to feel responsive
-  const loading = isLoading || isValidating;
+  const loading =
+    bootstrapLoading || userLoading || isLoading || isValidating;
 
   // Use refresh() where loadAssets() was used
 
@@ -212,8 +245,8 @@ export default function ClientAssetsPage({
         }
 
         const [t, c] = await Promise.all(promises);
-        pTypes = t;
-        pClasses = c;
+        pTypes = filterRefRows(Array.isArray(t) ? t : t?.data);
+        pClasses = filterRefRows(Array.isArray(c) ? c : c?.data);
       }
 
       setEditingAsset(fullAsset);

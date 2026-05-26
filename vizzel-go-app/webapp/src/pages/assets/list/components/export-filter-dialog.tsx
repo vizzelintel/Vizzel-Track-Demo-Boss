@@ -31,6 +31,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { TEST_IDS } from "@/components/test-ids";
+import { filterRefRows } from "@/lib/asset-normalize";
 
 interface ExportFilterDialogProps {
   open: boolean;
@@ -71,7 +72,7 @@ export function ExportFilterDialog({
     (url) => apiRequest(url).then((res) => res.data),
   );
 
-  const classes = result || [];
+  const classes = filterRefRows(result);
 
   const handleConfirm = () => {
     if (selectedIDs.length === 0) {
@@ -125,7 +126,11 @@ export function ExportFilterDialog({
                     classes.length > 0 && selectedIDs.length === classes.length
                   }
                   onCheckedChange={() =>
-                    toggleAll(classes.map((c: any) => c.id))
+                    toggleAll(
+                      classes
+                        .map((c) => Number(c.id))
+                        .filter((id) => Number.isFinite(id) && id > 0),
+                    )
                   }
                 />
                 <label
@@ -138,24 +143,26 @@ export function ExportFilterDialog({
 
               <ScrollArea className="h-[250px] rounded-md border p-2">
                 <div className="space-y-2">
-                  {classes.map((c: any) => (
+                  {classes.map((c) => (
                     <div
-                      key={c.id}
+                      key={String(c.id)}
                       className="hover:bg-muted/50 flex items-center space-x-2 rounded p-1"
                     >
                       <Checkbox
                         id={`class-${c.id}`}
-                        checked={selectedIDs.includes(c.id)}
-                        onCheckedChange={() => toggleSelection(c.id)}
+                        checked={selectedIDs.includes(Number(c.id))}
+                        onCheckedChange={() => toggleSelection(Number(c.id))}
                       />
                       <label
                         htmlFor={`class-${c.id}`}
                         className="flex-1 cursor-pointer p-2 text-sm leading-none font-medium"
                       >
-                        {c.className}
-                        {c.assetType?.typeName && (
+                        {String(c.className ?? "")}
+                        {typeof c.assetType === "object" &&
+                          c.assetType != null &&
+                          (c.assetType as { typeName?: string }).typeName && (
                           <span className="text-muted-foreground ml-2 text-xs">
-                            ({c.assetType.typeName})
+                            ({(c.assetType as { typeName?: string }).typeName})
                           </span>
                         )}
                       </label>

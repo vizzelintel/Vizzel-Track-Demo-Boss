@@ -5,14 +5,11 @@ import Link from "next/link";
 import {
   LayoutDashboard,
   FolderOpen,
-  Settings,
   Building2,
   FileText,
   Database,
   Bolt,
   FileJson,
-  LifeBuoy,
-  Send,
   Command,
   ArrowLeftRight,
   Shield,
@@ -30,14 +27,12 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-import { NavSecondary } from "@/components/nav-secondary";
 import { NavUser } from "@/components/nav-user";
 import { NavMain, type NavMainItem } from "@/components/nav-main";
 
 import { useUser } from "@/hooks/use-user";
 import { getImageUrl } from "@/lib/utils";
 
-import { ProfileDialog } from "@/components/profile-dialog";
 import { useSession } from "next-auth/react";
 
 import { useOrganizationMenus } from "@/hooks/use-organization-menus";
@@ -51,9 +46,6 @@ export function AppSidebar({
   const { user, loading: userLoading } = useUser();
   const loading = userLoading || sessionStatus === "loading";
   // const { isMobile, setOpenMobile } = useSidebar();
-  const [profileOpen, setProfileOpen] = React.useState(false);
-  const [profileTab, setProfileTab] = React.useState("personal");
-
   // Determine initial data from Session (Fast) or User Profile (Slow but detailed)
   // This prevents menu flickering/disappearing on refresh
   const roleID =
@@ -104,7 +96,6 @@ export function AppSidebar({
             user={{ name: "", email: "", avatar: "" }}
             isLoading={true}
             isSuperAdmin={false}
-            onOpenProfile={() => { }}
           />
         </SidebarFooter>
       </Sidebar>
@@ -306,23 +297,6 @@ export function AppSidebar({
     // Logic for Borrow-Return visibility if needed, currently enabled for non-role 4
   }
 
-  // 🌟 Secondary Menu
-  const navSecondary = [
-    {
-      title: "ตั้งค่า",
-      url: "#",
-      icon: Settings,
-      disabled: isInactive,
-      testId: TEST_IDS.SIDEBAR.LINK_SETTINGS,
-      onClick: () => {
-        setProfileTab("account");
-        setProfileOpen(true);
-      },
-    },
-    { title: "ขอความช่วยเหลือ", url: "#", icon: LifeBuoy, disabled: true },
-    { title: "ข้อเสนอแนะ", url: "#", icon: Send, disabled: true },
-  ];
-
   const showMainSystem = hasMenu(1);
 
   return (
@@ -352,7 +326,6 @@ export function AppSidebar({
             <NavMain items={orgSpecificItems} label="ระบบเฉพาะองค์กรคุณ" />
           )}
 
-          <NavSecondary items={navSecondary} className="mt-auto" />
         </SidebarContent>
         <SidebarFooter className="z-10 shadow-[0_-1px_4px_rgba(0,0,0,0.1)] md:shadow-none">
           <NavUser
@@ -363,19 +336,9 @@ export function AppSidebar({
             }}
             isLoading={loading}
             isSuperAdmin={roleID === 1}
-            onOpenProfile={() => {
-              setProfileTab("personal");
-              setProfileOpen(true);
-            }}
           />
         </SidebarFooter>
       </Sidebar>
-
-      <ProfileDialog
-        open={profileOpen}
-        onOpenChange={setProfileOpen}
-        defaultTab={profileTab}
-      />
     </>
   );
 }

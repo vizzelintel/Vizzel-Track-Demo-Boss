@@ -52,6 +52,7 @@ import { ExportFilterDialog } from "./export-filter-dialog";
 import { useState } from "react";
 import { useUser } from "@/hooks/use-user";
 import { TEST_IDS } from "@/components/test-ids";
+import { filterRefRows, toFacetOptions } from "@/lib/asset-normalize";
 
 interface DataTableToolbarProps<TData> {
   table: Table<TData>;
@@ -99,7 +100,7 @@ export function DataTableToolbar<TData>({
   const rowSelection = table.getState().rowSelection;
   const selectedIds = Object.keys(rowSelection).map(Number);
   const isSuperAdmin = (user as any)?.roleID === 1;
-  const allCategories = initialReferenceData?.categories || [];
+  const allCategories = filterRefRows(initialReferenceData?.categories);
 
   // Local state for input to avoid UI lag, sync with debounce
   const [searchValue, setSearchValue] = useState(
@@ -120,12 +121,13 @@ export function DataTableToolbar<TData>({
       apiRequest(
         `/asset/type/get_all?organizationID=${user.organizationID}&categoryID=${categoryIdsParam}`,
       )
-        .then((res) => setTypes(Array.isArray(res) ? res : res.data || []))
+        .then((res) =>
+          setTypes(filterRefRows(Array.isArray(res) ? res : res?.data)),
+        )
         .catch(() => setTypes([]))
         .finally(() => setLoadingTypes(false));
     } else {
       setTypes([]);
-      onTypeChange?.([]);
     }
   }, [categoryFilter, user?.organizationID]);
 
@@ -137,12 +139,13 @@ export function DataTableToolbar<TData>({
       apiRequest(
         `/asset/class/get_all?organizationID=${user.organizationID}&typeID=${typeIdsParam}`,
       )
-        .then((res) => setClasses(Array.isArray(res) ? res : res.data || []))
+        .then((res) =>
+          setClasses(filterRefRows(Array.isArray(res) ? res : res?.data)),
+        )
         .catch(() => setClasses([]))
         .finally(() => setLoadingClasses(false));
     } else {
       setClasses([]);
-      onClassChange?.([]);
     }
   }, [typeFilter, user?.organizationID]);
 
@@ -176,7 +179,9 @@ export function DataTableToolbar<TData>({
 
   const handleExportSelected = (format: "default" | "elaas") => {
     const selectedRows = table.getFilteredSelectedRowModel().rows;
-    const ids = selectedRows.map((row) => (row.original as any).id);
+    const ids = selectedRows
+      .map((row) => (row.original as { id?: number })?.id)
+      .filter((id): id is number => id != null && Number.isFinite(id));
     if (ids.length > 0) {
       onExport({ mode: "custom", assetID: ids, file: format });
     }
@@ -288,10 +293,11 @@ export function DataTableToolbar<TData>({
             {/* ตัวกรองหมวดหมู่ (Faceted Style) */}
             <DataTableFacetedFilter
               title="หมวดหมู่"
-              options={allCategories.map((c: any) => ({
-                label: c.categoryName,
-                value: c.id.toString(),
-              }))}
+              options={toFacetOptions(allCategories, [
+                "categoryName",
+                "title",
+                "name",
+              ])}
               selectedValues={new Set(categoryFilter || [])}
               onSelect={(val) => {
                 const newValues = new Set(categoryFilter || []);
@@ -310,10 +316,7 @@ export function DataTableToolbar<TData>({
             {(categoryFilter && categoryFilter.length > 0 || typeFilter && typeFilter.length > 0) && (
               <DataTableFacetedFilter
                 title="ประเภท"
-                options={types.map((t: any) => ({
-                  label: t.typeName,
-                  value: t.id.toString(),
-                }))}
+                options={toFacetOptions(types, ["typeName", "title"])}
                 selectedValues={new Set(typeFilter || [])}
                 onSelect={(val) => {
                   const newValues = new Set(typeFilter || []);
@@ -333,10 +336,7 @@ export function DataTableToolbar<TData>({
             {(typeFilter && typeFilter.length > 0 || classFilter && classFilter.length > 0) && (
               <DataTableFacetedFilter
                 title="กลุ่ม"
-                options={classes.map((c: any) => ({
-                  label: c.className,
-                  value: c.id.toString(),
-                }))}
+                options={toFacetOptions(classes, ["className", "title"])}
                 selectedValues={new Set(classFilter || [])}
                 onSelect={(val) => {
                   const newValues = new Set(classFilter || []);

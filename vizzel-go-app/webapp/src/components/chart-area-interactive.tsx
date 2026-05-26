@@ -7,10 +7,12 @@ import { Box, Loader2 } from "lucide-react";
 
 import { useIsMobile } from "@/hooks/use-mobile";
 import { apiRequest } from "@/lib/api";
+import { parseChartDate, toBuddhistYear } from "@/lib/chart-dates";
 import type {
   AssetValueHistoryGranularity,
   AssetValueHistoryRange,
 } from "@/lib/data-service";
+import { normalizeTrendPayload } from "@/lib/dashboard-normalize";
 
 import {
   Card,
@@ -141,16 +143,13 @@ interface ChartAreaInteractiveProps {
   initialRangeId?: RangeOptionId;
 }
 
-function toBuddhistYear(year: number): number {
-  return year + 543;
-}
-
 function formatTickLabel(
   iso: string | undefined,
   granularity: AssetValueHistoryGranularity,
 ): string {
   if (!iso) return "";
-  const d = new Date(iso);
+  const d = parseChartDate(iso);
+  if (!d) return iso;
   const day = d.getDate();
   const monthShort = d.toLocaleDateString("th-TH", { month: "short" });
   const yearBE = toBuddhistYear(d.getFullYear());
@@ -180,7 +179,8 @@ function formatFullDateLabel(
   granularity: AssetValueHistoryGranularity,
 ): string {
   if (!iso) return "";
-  const d = new Date(iso);
+  const d = parseChartDate(iso);
+  if (!d) return iso;
   const yearBE = toBuddhistYear(d.getFullYear());
   const fullDay = d.toLocaleDateString("th-TH", {
     day: "numeric",
@@ -244,6 +244,7 @@ export function ChartAreaInteractive({
     (url) => apiRequest(url),
     {
       fallbackData: useFallback ? { data: initialData } : undefined,
+      revalidateOnMount: !useFallback,
       revalidateOnFocus: false,
       keepPreviousData: true,
     },
@@ -251,7 +252,7 @@ export function ChartAreaInteractive({
 
   const chartData: TrendPoint[] = React.useMemo(() => {
     const list = res?.data ?? (useFallback ? initialData : []) ?? [];
-    return Array.isArray(list) ? list : [];
+    return normalizeTrendPayload(list);
   }, [res, initialData, useFallback]);
 
   const isEmpty =

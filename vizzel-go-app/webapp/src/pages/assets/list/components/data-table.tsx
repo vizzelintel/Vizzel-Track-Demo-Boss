@@ -177,8 +177,13 @@ export function DataTable<TData, TValue>({
   // ----------------------------------------------------------
   // Create Table Instance
   // ----------------------------------------------------------
+  const safeData = React.useMemo(
+    () => (Array.isArray(data) ? data.filter((row) => row != null) : []),
+    [data],
+  );
+
   const table = useReactTable({
-    data,
+    data: safeData,
     columns: tableColumns,
     pageCount: pageCount, // แจ้งจำนวนหน้าทั้งหมดให้ Table รู้
     state: {
@@ -192,7 +197,8 @@ export function DataTable<TData, TValue>({
       },
     },
     manualPagination: true, // ⭐ สำคัญ: บอกว่าเราจัดการ Pagination เอง (Server-side)
-    getRowId: (row: any) => row.id, // ⭐ ใช้ ID จาก Database แทน index เพื่อให้เลือกข้ามหน้าได้
+    getRowId: (row: any, index: number) =>
+      String(row?.id ?? row?.assetNumber ?? `fallback-${index}`),
 
     // Handlers
     onRowSelectionChange: setRowSelection,
@@ -309,7 +315,9 @@ export function DataTable<TData, TValue>({
                     <TableRow
                       key={row.id}
                       data-state={row.getIsSelected() && "selected"}
-                      data-testid={TEST_IDS.ASSET.TABLE_ROW((row.original as any).id)}
+                      data-testid={TEST_IDS.ASSET.TABLE_ROW(
+                        (row.original as { id?: number })?.id ?? 0,
+                      )}
                     >
                       {row.getVisibleCells().map((cell) => {
                         const isRowLocked = Boolean(

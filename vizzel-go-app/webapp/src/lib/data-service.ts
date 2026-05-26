@@ -13,6 +13,8 @@ import {
   type TrendRow,
   type ValueHistoryRow,
   normalizeValueHistoryPayload,
+  normalizeDashboardInitialData,
+  type DashboardInitialData,
 } from "./dashboard-normalize";
 
 export type AssetValueHistoryRange =
@@ -34,6 +36,18 @@ export type AssetValueHistoryGranularity =
   | "year";
 
 export type DepreciationRange = "1m" | "3m" | "1y" | "3y" | "5y" | "10y" | "all";
+
+/** Single request for overview dashboard (summary + charts). */
+export async function getDashboardInitialData(
+  orgId: number,
+  year = new Date().getFullYear(),
+  period: "7d" | "30d" | "90d" = "90d",
+): Promise<DashboardInitialData> {
+  const res = await apiRequest<unknown>(
+    `/dashboard/initial-data/${orgId}?year=${year}&period=${period}`,
+  );
+  return normalizeDashboardInitialData(res);
+}
 
 export async function getDashboardSummary(orgId: number) {
   const res = await apiRequest<unknown>(`/dashboard/summary/${orgId}`);

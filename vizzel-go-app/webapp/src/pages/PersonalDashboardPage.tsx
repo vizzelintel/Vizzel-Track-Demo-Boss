@@ -12,6 +12,11 @@ import {
   getPersonalStatus,
   getPersonalSummary,
 } from "@/lib/data-service";
+import {
+  normalizePersonalAssetRows,
+  normalizePersonalCategory,
+  normalizePersonalStatus,
+} from "@/lib/personal-dashboard-normalize";
 
 export function PersonalDashboardPage() {
   const { user } = useAuth();
@@ -27,9 +32,16 @@ export function PersonalDashboardPage() {
   useEffect(() => {
     Promise.all([
       getPersonalSummary().then((s) => setSummary(s as Record<string, unknown>)),
-      getPersonalStatus().then((s) => setStatusData((s as unknown[]) ?? [])),
-      getPersonalCategory().then((c) => setCategoryData((c as unknown[]) ?? [])),
-      getPersonalAssets(1, 10).then(setAssets),
+      getPersonalStatus().then((s) => setStatusData(normalizePersonalStatus(s))),
+      getPersonalCategory().then((c) =>
+        setCategoryData(normalizePersonalCategory(c)),
+      ),
+      getPersonalAssets(1, 10).then((res) => {
+        setAssets({
+          data: normalizePersonalAssetRows(res.data),
+          total: Number(res.total ?? 0),
+        });
+      }),
     ]).finally(() => setLoading(false));
   }, []);
 

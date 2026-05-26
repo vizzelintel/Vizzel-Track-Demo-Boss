@@ -16,6 +16,20 @@ const RegisterPage = lazy(() =>
 const ForgotPasswordPage = lazy(() =>
   import("./pages/ForgotPasswordPage").then((m) => ({ default: m.ForgotPasswordPage })),
 );
+const ResetPasswordPage = lazy(() =>
+  import("./pages/ResetPasswordPage").then((m) => ({ default: m.ResetPasswordPage })),
+);
+const VerifyEmailPage = lazy(() =>
+  import("./pages/VerifyEmailPage").then((m) => ({ default: m.VerifyEmailPage })),
+);
+const OnboardingPage = lazy(() =>
+  import("./pages/OnboardingPage").then((m) => ({ default: m.OnboardingPage })),
+);
+const SelectOrganizationPage = lazy(() =>
+  import("./pages/SelectOrganizationPage").then((m) => ({
+    default: m.SelectOrganizationPage,
+  })),
+);
 const DashboardPage = lazy(() =>
   import("./pages/DashboardPage").then((m) => ({ default: m.DashboardPage })),
 );
@@ -163,6 +177,34 @@ export default function App() {
         }
       />
       <Route
+        path="/reset-password"
+        element={
+          <AuthLayout>
+            <Lazy>
+              <ResetPasswordPage />
+            </Lazy>
+          </AuthLayout>
+        }
+      />
+      <Route
+        path="/verify-email"
+        element={
+          <AuthLayout>
+            <Lazy>
+              <VerifyEmailPage />
+            </Lazy>
+          </AuthLayout>
+        }
+      />
+      <Route
+        path="/onboarding"
+        element={
+          <Lazy>
+            <OnboardingPage />
+          </Lazy>
+        }
+      />
+      <Route
         element={
           <Protected>
             <ProtectedLayout />
@@ -237,6 +279,26 @@ export default function App() {
           element={
             <Lazy>
               <OrganizationStructurePage />
+            </Lazy>
+          }
+        />
+        <Route
+          path="/organization/institute"
+          element={<Navigate to="/organization-structure?tab=institutes" replace />}
+        />
+        <Route
+          path="/organization/department"
+          element={<Navigate to="/organization-structure?tab=departments" replace />}
+        />
+        <Route
+          path="/organization/section"
+          element={<Navigate to="/organization-structure?tab=sections" replace />}
+        />
+        <Route
+          path="/select-organization"
+          element={
+            <Lazy>
+              <SelectOrganizationPage />
             </Lazy>
           }
         />

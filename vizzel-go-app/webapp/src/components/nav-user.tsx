@@ -2,11 +2,8 @@
 
 import {
   BadgeCheck,
-  Bell,
   ChevronsUpDown,
-  CreditCard,
   LogOut,
-  Sparkles,
   User,
   Building2,
   Settings,
@@ -30,16 +27,13 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-// import { signOut } from "next-auth/react" // Removed
 import { useLogout } from "@/hooks/use-logout";
-import Image from "next/image";
 import { TEST_IDS } from "@/components/test-ids";
 
 export function NavUser({
   user,
   isLoading,
   isSuperAdmin,
-  onOpenProfile,
 }: {
   user: {
     name: string;
@@ -48,24 +42,25 @@ export function NavUser({
   };
   isLoading?: boolean;
   isSuperAdmin?: boolean;
-  onOpenProfile: () => void;
 }) {
   const { isMobile, setOpenMobile } = useSidebar();
   const { logout } = useLogout();
   const router = useRouter();
+
+  const goTo = (path: string) => {
+    router.push(path);
+    if (isMobile) setOpenMobile(false);
+  };
 
   if (isLoading) {
     return (
       <SidebarMenu>
         <SidebarMenuItem>
           <SidebarMenuButton size="lg" disabled>
-            <div className="h-8 w-8 animate-pulse rounded-lg bg-zinc-200" />{" "}
-            {/* Skeleton Avatar */}
+            <div className="h-8 w-8 animate-pulse rounded-lg bg-zinc-200" />
             <div className="grid flex-1 gap-1 text-left text-sm leading-tight">
-              <div className="h-4 w-24 animate-pulse rounded bg-zinc-200" />{" "}
-              {/* Skeleton Name */}
-              <div className="h-3 w-32 animate-pulse rounded bg-zinc-200" />{" "}
-              {/* Skeleton Email */}
+              <div className="h-4 w-24 animate-pulse rounded bg-zinc-200" />
+              <div className="h-3 w-32 animate-pulse rounded bg-zinc-200" />
             </div>
             <ChevronsUpDown className="ml-auto size-4 opacity-50" />
           </SidebarMenuButton>
@@ -119,22 +114,10 @@ export function NavUser({
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem disabled>
-                <Sparkles />
-                อัปเกรด
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
             {isSuperAdmin && (
               <>
                 <DropdownMenuGroup>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      router.push("/select-organization");
-                      if (isMobile) setOpenMobile(false);
-                    }}
-                  >
+                  <DropdownMenuItem onClick={() => goTo("/select-organization")}>
                     <Building2 />
                     เปลี่ยนองค์กร
                   </DropdownMenuItem>
@@ -144,36 +127,25 @@ export function NavUser({
             )}
             <DropdownMenuGroup>
               <DropdownMenuItem
-                onClick={() => {
-                  onOpenProfile();
-                  if (isMobile) setOpenMobile(false);
-                }}
+                onClick={() => goTo("/profile")}
                 data-testid={TEST_IDS.NAV_USER.MENUITEM_PROFILE}
               >
                 <BadgeCheck />
                 บัญชี
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => {
-                  onOpenProfile();
-                  if (isMobile) setOpenMobile(false);
-                }}
+                onClick={() => goTo("/settings")}
                 data-testid={TEST_IDS.NAV_USER.MENUITEM_SETTINGS}
               >
                 <Settings />
                 ตั้งค่า
               </DropdownMenuItem>
-              <DropdownMenuItem disabled>
-                <CreditCard />
-                บิล
-              </DropdownMenuItem>
-              <DropdownMenuItem disabled>
-                <Bell />
-                แจ้งเตือน
-              </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => logout()} data-testid={TEST_IDS.NAV_USER.MENUITEM_LOGOUT}>
+            <DropdownMenuItem
+              onClick={() => logout()}
+              data-testid={TEST_IDS.NAV_USER.MENUITEM_LOGOUT}
+            >
               <LogOut />
               ออกจากระบบ
             </DropdownMenuItem>

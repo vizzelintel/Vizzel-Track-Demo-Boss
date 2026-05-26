@@ -244,11 +244,8 @@ func (h *Handler) UserInitialData(w http.ResponseWriter, r *http.Request) {
 	if orgID == 0 {
 		orgID = claims.OrganizationID
 	}
-	users, _ := h.store.ListUsers(r.Context(), orgID)
-	usr := make([]map[string]any, 0, len(users))
-	for _, u := range users {
-		usr = append(usr, rowToUser(u))
-	}
+	orgUsers, _ := h.store.ListOrgUsers(r.Context(), orgID)
+	usr := orgUsersToMaps(orgUsers)
 	writeJSON(w, http.StatusOK, map[string]any{"data": usr, "users": map[string]any{"data": usr}})
 }
 

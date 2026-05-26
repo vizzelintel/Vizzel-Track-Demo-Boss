@@ -1,6 +1,7 @@
 "use client";
 
 import { apiRequest } from "@/lib/api";
+import { normalizeOrgUsersResponse } from "@/lib/org-user-normalize";
 
 export interface UpdateOrgRolePayload {
   deptID?: number | null;
@@ -74,34 +75,44 @@ export async function fetchOrganizationUsers(
   }
 
   try {
-    return await apiRequest<OrganizationUsersResponse>(path);
+    const res = await apiRequest<OrganizationUsersResponse | { data?: unknown }>(path);
+    const data = normalizeOrgUsersResponse(res);
+    return paginateOrgUsers(data, page, pageSize, verify, search);
   } catch {
-    const res = await apiRequest<{ data?: OrgUser[]; users?: { data?: OrgUser[] } }>(
-      `/user/initial-data/${organizationID}`,
-    );
-    const raw = res.data ?? res.users?.data ?? [];
-    const filtered =
-      verify === undefined
-        ? raw
-        : raw.filter((u) => Number(u.verify ?? 2) === verify);
-    const searched =
-      search && search.trim()
-        ? filtered.filter((u) => {
-            const q = search.trim().toLowerCase();
-            const full = `${u.user?.name ?? ""} ${u.user?.surname ?? ""} ${u.user?.email ?? ""}`.toLowerCase();
-            return full.includes(q);
-          })
-        : filtered;
-    const start = (page - 1) * pageSize;
-    const slice = searched.slice(start, start + pageSize);
-    return {
-      page,
-      pageSize,
-      total: searched.length,
-      totalPages: Math.max(1, Math.ceil(searched.length / pageSize)),
-      data: slice,
-    };
+    const res = await apiRequest<unknown>(`/user/initial-data/${organizationID}`);
+    const data = normalizeOrgUsersResponse(res);
+    return paginateOrgUsers(data, page, pageSize, verify, search);
   }
+}
+
+function paginateOrgUsers(
+  all: OrgUser[],
+  page: number,
+  pageSize: number,
+  verify?: number,
+  search?: string,
+): OrganizationUsersResponse {
+  const filtered =
+    verify === undefined
+      ? all
+      : all.filter((u) => Number(u.verify ?? 2) === verify);
+  const searched =
+    search && search.trim()
+      ? filtered.filter((u) => {
+          const q = search.trim().toLowerCase();
+          const full = `${u.user?.name ?? ""} ${u.user?.surname ?? ""} ${u.user?.email ?? ""}`.toLowerCase();
+          return full.includes(q);
+        })
+      : filtered;
+  const start = (page - 1) * pageSize;
+  const slice = searched.slice(start, start + pageSize);
+  return {
+    page,
+    pageSize,
+    total: searched.length,
+    totalPages: Math.max(1, Math.ceil(searched.length / pageSize)),
+    data: slice,
+  };
 }
 
 export async function toggleUserActive(

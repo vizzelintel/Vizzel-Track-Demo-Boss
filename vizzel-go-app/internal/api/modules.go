@@ -40,6 +40,9 @@ func (h *Handler) listModule(w http.ResponseWriter, r *http.Request, fn func(org
 		writeError(w, http.StatusInternalServerError, "list failed")
 		return
 	}
+	if rows == nil {
+		rows = []store.Row{}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": rows})
 }
 

@@ -57,6 +57,10 @@ func toCompatAssets(items []store.Asset) []map[string]any {
 	return out
 }
 
+func rowIDValid(r store.Row) bool {
+	return r.ID > 0
+}
+
 func rowToCategory(r store.Row) map[string]any {
 	return map[string]any{"id": r.ID, "categoryName": r.Title}
 }
@@ -97,10 +101,91 @@ func rowToUser(r store.Row) map[string]any {
 	}
 }
 
+func rowToOrgUser(o store.OrgUserRow) map[string]any {
+	m := map[string]any{
+		"relationID":     o.RelationID,
+		"roleID":         o.RoleID,
+		"verify":         o.Verify,
+		"status":         o.Status,
+		"organizationID": o.OrganizationID,
+		"user": map[string]any{
+			"id":       o.UserID,
+			"username": o.Username,
+			"name":     o.Name,
+			"surname":  o.Surname,
+			"email":    o.Email,
+		},
+	}
+	if o.DeptID != nil {
+		m["deptID"] = *o.DeptID
+	}
+	if o.InstituteID != nil {
+		m["instituteID"] = *o.InstituteID
+	}
+	if o.SectionID != nil {
+		m["sectionID"] = *o.SectionID
+	}
+	if o.DeptName != "" {
+		dept := map[string]any{"name": o.DeptName}
+		if o.DeptID != nil {
+			dept["id"] = *o.DeptID
+		}
+		m["department"] = dept
+	}
+	if o.InstituteName != "" {
+		inst := map[string]any{"name": o.InstituteName}
+		if o.InstituteID != nil {
+			inst["id"] = *o.InstituteID
+		}
+		m["institute"] = inst
+	}
+	if o.SectionName != "" {
+		sec := map[string]any{"name": o.SectionName}
+		if o.SectionID != nil {
+			sec["id"] = *o.SectionID
+		}
+		m["section"] = sec
+	}
+	return m
+}
+
+func orgUsersToMaps(users []store.OrgUserRow) []map[string]any {
+	out := make([]map[string]any, 0, len(users))
+	for _, u := range users {
+		out = append(out, rowToOrgUser(u))
+	}
+	return out
+}
+
+func rowToDepartment(r store.Row) map[string]any {
+	m := map[string]any{
+		"id":       r.ID,
+		"deptName": r.Title,
+		"dept_name": r.Title,
+		"name":     r.Title,
+	}
+	if r.Value > 0 {
+		m["instituteID"] = r.Value
+	}
+	return m
+}
+
+func departmentsToMaps(rows []store.Row) []map[string]any {
+	out := make([]map[string]any, 0, len(rows))
+	for _, r := range rows {
+		if rowIDValid(r) {
+			out = append(out, rowToDepartment(r))
+		}
+	}
+	return out
+}
+
 func rowsToNamed(rows []store.Row, key string) []map[string]any {
 	out := make([]map[string]any, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, map[string]any{"id": r.ID, key: r.Title})
+		if rowIDValid(r) {
+			out = append(out, map[string]any{"id": r.ID, key: r.Title})
+		}
 	}
 	return out
 }

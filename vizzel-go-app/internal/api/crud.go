@@ -35,6 +35,7 @@ func (h *Handler) CreateAsset(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
+	h.enrichAssetInput(r.Context(), orgID, &in)
 	a, err := h.store.CreateAsset(r.Context(), orgID, in)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "create failed")
@@ -55,6 +56,7 @@ func (h *Handler) UpdateAsset(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
+	h.enrichAssetInput(r.Context(), orgID, &in)
 	if err := h.store.UpdateAsset(r.Context(), orgID, id, in); err != nil {
 		writeError(w, http.StatusInternalServerError, "update failed")
 		return

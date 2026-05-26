@@ -72,7 +72,15 @@ export function DataTableRowActions<TData>({
   onDuplicate,
   onDelete,
 }: DataTableRowActionsProps<TData>) {
-  const asset = assetSchema.parse(row.original);
+  const original = row.original;
+  if (original == null || typeof original !== "object") {
+    return null;
+  }
+  const parsed = assetSchema.safeParse(original);
+  if (!parsed.success) {
+    return null;
+  }
+  const asset = parsed.data;
 
   const userDisplay =
     asset.users && Array.isArray(asset.users)

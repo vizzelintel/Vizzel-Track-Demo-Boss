@@ -25,6 +25,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Pie, PieChart, Cell } from "recharts";
 import { PieChart as PieChartIcon } from "lucide-react";
+import { formatLocaleNumber } from "@/lib/safe-format";
 
 interface PersonalStatusChartProps {
   data?: Array<{
@@ -66,11 +67,15 @@ export function PersonalStatusChart({
     setMounted(true);
   }, []);
 
-  const chartData = data ?? [];
+  const chartData = (data ?? []).map((item) => ({
+    name: item.name ?? "ไม่ระบุ",
+    value: Number(item.value) || 0,
+    fill: item.fill ?? "var(--chart-2)",
+  }));
   const hasData = chartData.some((item) => item.value > 0);
-  
+
   const total = React.useMemo(
-    () => chartData.reduce((sum, item) => sum + item.value, 0),
+    () => chartData.reduce((sum, item) => sum + (Number(item.value) || 0), 0),
     [chartData],
   );
 
@@ -81,7 +86,7 @@ export function PersonalStatusChart({
       <CardHeader>
         <CardTitle>สถานะสินทรัพย์ที่ดูแล</CardTitle>
         <CardDescription>
-          สรุปจำนวนสินทรัพย์ทั้งหมด {total.toLocaleString()} รายการ
+          สรุปจำนวนสินทรัพย์ทั้งหมด {formatLocaleNumber(total)} รายการ
         </CardDescription>
         <CardAction>
           <ToggleGroup
@@ -166,7 +171,7 @@ export function PersonalStatusChart({
                     tickLine={false}
                     axisLine={false}
                     tickMargin={8}
-                    tickFormatter={(value) => value.toLocaleString()}
+                    tickFormatter={(value) => formatLocaleNumber(value)}
                   />
                   <ChartTooltip
                     cursor={false}

@@ -110,6 +110,8 @@ func ParseAssetInputJSON(body []byte) (AssetInput, error) {
 		OwnerName:       getStr("owner_name", "ownerName"),
 		AssetStatusName: getStr("asset_status_name", "assetStatusName"),
 		AssetValue:      getInt("asset_value", "assetValue"),
+		AssetStatusID:   getInt("asset_status_id", "assetStatusID"),
+		UserID:          getInt("user_id", "userID"),
 	}, nil
 }
 
@@ -196,7 +198,10 @@ func (s *postgresStore) statusIDByName(ctx context.Context, orgID int64, name st
 }
 
 func (s *postgresStore) createAssetTab(ctx context.Context, orgID int64, in AssetInput) (*Asset, error) {
-	stID := s.statusIDByName(ctx, orgID, in.AssetStatusName)
+	stID := in.AssetStatusID
+	if stID == 0 {
+		stID = s.statusIDByName(ctx, orgID, in.AssetStatusName)
+	}
 	var id int64
 	err := s.pool.QueryRow(ctx,
 		`INSERT INTO tab_asset (asset_number, rfid_num, asset_name, asset_details, asset_class_id, asset_value, organization_id, asset_status_id, received_date, created_by)
@@ -234,7 +239,10 @@ func (s *postgresStore) getAssetTab(ctx context.Context, orgID, id int64) (*Asse
 }
 
 func (s *postgresStore) updateAssetTab(ctx context.Context, orgID, id int64, in AssetInput) error {
-	stID := s.statusIDByName(ctx, orgID, in.AssetStatusName)
+	stID := in.AssetStatusID
+	if stID == 0 {
+		stID = s.statusIDByName(ctx, orgID, in.AssetStatusName)
+	}
 	_, err := s.pool.Exec(ctx,
 		`UPDATE tab_asset SET asset_number=$3, rfid_num=$4, asset_name=$5, asset_class_id=$6, asset_value=$7, asset_status_id=$8, updated_at=NOW()
 		 WHERE id=$1 AND organization_id=$2`,

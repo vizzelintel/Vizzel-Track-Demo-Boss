@@ -59,6 +59,7 @@ import { toast } from "sonner";
 import { TEST_IDS } from "@/components/test-ids";
 import { useUser } from "@/hooks/use-user";
 import { useOrganizationUsers } from "@/hooks/use-organization-users";
+import { normalizeOrgUser } from "@/lib/org-user-normalize";
 
 const formSchema = z
   .object({
@@ -236,13 +237,13 @@ export function InternalForm({
                         {field.value && usersData?.data
                           ? (() => {
                               const foundUser = usersData.data.find(
-                                (u: any) => u.user.id === field.value,
+                                (u: any) => normalizeOrgUser(u)?.user.id === field.value,
                               );
-                              if (foundUser)
-                                return foundUser.user.name
-                                  ? `${foundUser.user.name} ${foundUser.user.surname ?? ""}`
-                                  : foundUser.user.username ||
-                                      foundUser.user.email;
+                              const u = foundUser ? normalizeOrgUser(foundUser) : null;
+                              if (u?.user)
+                                return u.user.name
+                                  ? `${u.user.name} ${u.user.surname ?? ""}`
+                                  : u.user.username || u.user.email;
                               return "เลือกผู้เบิก/ยืม";
                             })()
                           : "เลือกผู้เบิก/ยืม"}
@@ -264,7 +265,10 @@ export function InternalForm({
                       <CommandList className="max-h-[300px]">
                         <CommandEmpty>ไม่พบรายชื่อ</CommandEmpty>
                         <CommandGroup>
-                          {usersData?.data?.map((orgUser: any) => (
+                          {usersData?.data
+                            ?.map((raw: unknown) => normalizeOrgUser(raw))
+                            .filter((u): u is NonNullable<typeof u> => u != null)
+                            .map((orgUser) => (
                             <CommandItem
                               value={`${orgUser.user.name || ""} ${
                                 orgUser.user.surname || ""
@@ -412,7 +416,7 @@ export function InternalForm({
                   <SelectContent>
                     {buildings.map((b: any) => (
                       <SelectItem key={b.id} value={String(b.id)}>
-                        {b.buildingName}
+                        {b.buildingName ?? b.name ?? `อาคาร #${b.id}`}
                       </SelectItem>
                     ))}
                   </SelectContent>
