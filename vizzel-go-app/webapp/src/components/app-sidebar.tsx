@@ -329,15 +329,6 @@ export function AppSidebar({
           : []),
       ],
     },
-    ...([1, 2].includes(roleID as number)
-      ? [
-          {
-            title: "ทรัพย์สินหน่วยงานย่อย",
-            url: "/assets/central",
-            icon: Database,
-          },
-        ]
-      : []),
   ];
 
   // Role 4 Restriction: Hide org specific items if Role 4

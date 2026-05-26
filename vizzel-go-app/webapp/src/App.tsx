@@ -146,9 +146,6 @@ const SalesPage = lazy(() =>
 const SalesCreatePage = lazy(() =>
   import("./pages/SalesCreatePage").then((m) => ({ default: m.SalesCreatePage })),
 );
-const CentralAssetsPage = lazy(() =>
-  import("./pages/CentralAssetsPage").then((m) => ({ default: m.CentralAssetsPage })),
-);
 const WithdrawalVerifyPage = lazy(() =>
   import("./pages/WithdrawalVerifyPage").then((m) => ({
     default: m.WithdrawalVerifyPage,
@@ -507,14 +504,6 @@ export default function App() {
           element={
             <Lazy>
               <TransferIncomingPage />
-            </Lazy>
-          }
-        />
-        <Route
-          path="/assets/central"
-          element={
-            <Lazy>
-              <CentralAssetsPage />
             </Lazy>
           }
         />

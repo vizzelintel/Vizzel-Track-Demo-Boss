@@ -17,3 +17,4 @@ elaas-dryrun.json
 elaas-imported.json
 elaas-sample.xlsx
 *.exe.json
+fly-deploy.log
