@@ -86,6 +86,7 @@ type Store interface {
 	ListWithdrawalRemindersDue(ctx context.Context) ([]WithdrawalReminderRow, error)
 	MarkWithdrawalReminderSent(ctx context.Context, id int64) error
 	ListTransfers(ctx context.Context, orgID int64) ([]TransferRecord, error)
+	TransferDashboardStats(ctx context.Context, orgID int64) (TransferDashboardStats, error)
 	CreateTransfer(ctx context.Context, orgID int64, in TransferInput) (int64, error)
 	ListChildOrganizations(ctx context.Context, parentID int64) ([]Row, error)
 	ListTransferTargets(ctx context.Context, orgID int64) ([]Row, error)

@@ -24,6 +24,20 @@ func (h *Handler) ListTransfers(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"data": list})
 }
 
+func (h *Handler) TransferDashboardStats(w http.ResponseWriter, r *http.Request) {
+	claims, ok := claimsFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	st, err := h.store.TransferDashboardStats(r.Context(), claims.OrganizationID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "stats failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": st})
+}
+
 func (h *Handler) CreateTransfer(w http.ResponseWriter, r *http.Request) {
 	claims, ok := claimsFromContext(r.Context())
 	if !ok {
@@ -39,6 +53,8 @@ func (h *Handler) CreateTransfer(w http.ResponseWriter, r *http.Request) {
 		ToDeptID             int64  `json:"toDeptId"`
 		ToSectionID          int64  `json:"toSectionId"`
 		ToUserID             int64  `json:"toUserId"`
+		TargetBuildingID     int64  `json:"targetBuildingId"`
+		TargetRoomID         int64  `json:"targetRoomId"`
 		Reason               string `json:"reason"`
 		Submit               bool   `json:"submit"`
 	}
@@ -49,11 +65,13 @@ func (h *Handler) CreateTransfer(w http.ResponseWriter, r *http.Request) {
 		TransferType:         body.TransferType,
 		TargetOrganizationID: body.TargetOrganizationID,
 		ToInstituteID:        body.ToInstituteID,
-		ToDeptID:      body.ToDeptID,
-		ToSectionID:   body.ToSectionID,
-		ToUserID:      body.ToUserID,
-		Reason:        body.Reason,
-		RequestedBy:   claims.UserID,
+		ToDeptID:             body.ToDeptID,
+		ToSectionID:          body.ToSectionID,
+		ToUserID:             body.ToUserID,
+		TargetBuildingID:     body.TargetBuildingID,
+		TargetRoomID:         body.TargetRoomID,
+		Reason:               body.Reason,
+		RequestedBy:          claims.UserID,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "create failed")

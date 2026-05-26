@@ -89,6 +89,10 @@ func (s *sqliteStore) ListTransfers(ctx context.Context, orgID int64) ([]Transfe
 	return nil, nil
 }
 
+func (s *sqliteStore) TransferDashboardStats(ctx context.Context, orgID int64) (TransferDashboardStats, error) {
+	return TransferDashboardStats{}, nil
+}
+
 func (s *sqliteStore) CreateTransfer(ctx context.Context, orgID int64, in TransferInput) (int64, error) {
 	return 0, fmt.Errorf("transfer requires postgres")
 }

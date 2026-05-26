@@ -59,6 +59,7 @@ func MountCompatExtended(r chi.Router, h *Handler) {
 	r.Get("/approval/get/{id}", h.GetApprovalInstance)
 	r.Post("/approval/action/{id}", h.ApprovalAction)
 	r.Get("/transfer/list", h.ListTransfers)
+	r.Get("/transfer/dashboard-stats", h.TransferDashboardStats)
 	r.Post("/transfer/create", h.CreateTransfer)
 	r.Post("/transfer/submit/{id}", h.TransferSubmitApproval)
 	r.Post("/transfer/accept/{id}", h.AcceptTransferAtTarget)

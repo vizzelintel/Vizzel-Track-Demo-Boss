@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  acceptIncomingTransfer,
   createTransfer,
   listTransferTargets,
   listTransfers,
@@ -10,6 +9,7 @@ import {
   type TransferRecord,
 } from "@/lib/transfer";
 import { apiRequest } from "@/lib/api";
+import { fetchOrganizationUsers } from "@/lib/user";
 import { useUser } from "@/hooks/use-user";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,17 +24,47 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
+type BuildingRow = { id: number; buildingName?: string; name?: string };
+type RoomRow = { id: number; roomName?: string; name?: string; buildingID?: number; building_id?: number };
+type OrgUserRow = {
+  user?: { id?: number; name?: string; surname?: string; email?: string };
+  userID?: number;
+};
+
+function userLabel(u: OrgUserRow) {
+  const name = [u.user?.name, u.user?.surname].filter(Boolean).join(" ").trim();
+  return name || u.user?.email || String(u.user?.id ?? u.userID ?? "");
+}
+
 export function TransferPage() {
   const { user } = useUser();
   const orgID = user?.organizationRelation?.organizationID;
-  const roleID = user?.organizationRelation?.roleID ?? 4;
   const [rows, setRows] = useState<TransferRecord[]>([]);
   const [targets, setTargets] = useState<OrgTarget[]>([]);
   const [assets, setAssets] = useState<{ id: number; assetNumber: string; assetName: string }[]>([]);
+  const [buildings, setBuildings] = useState<BuildingRow[]>([]);
+  const [allRooms, setAllRooms] = useState<RoomRow[]>([]);
+  const [orgUsers, setOrgUsers] = useState<OrgUserRow[]>([]);
   const [assetId, setAssetId] = useState("");
   const [targetOrgId, setTargetOrgId] = useState("");
+  const [toUserId, setToUserId] = useState("");
+  const [buildingId, setBuildingId] = useState("");
+  const [roomId, setRoomId] = useState("");
   const [transferType, setTransferType] = useState<"temporary" | "permanent">("temporary");
   const [reason, setReason] = useState("");
+
+  const effectiveTargetOrgId = useMemo(() => {
+    if (targetOrgId) return Number(targetOrgId);
+    return orgID ?? null;
+  }, [targetOrgId, orgID]);
+
+  const filteredRooms = useMemo(() => {
+    if (!buildingId) return allRooms;
+    const bid = Number(buildingId);
+    return allRooms.filter(
+      (r) => (r.buildingID ?? r.building_id) === bid,
+    );
+  }, [allRooms, buildingId]);
 
   const load = useCallback(async () => {
     try {
@@ -67,9 +97,33 @@ export function TransferPage() {
       .catch(() => {});
   }, [orgID]);
 
+  useEffect(() => {
+    if (!effectiveTargetOrgId) return;
+    setToUserId("");
+    setBuildingId("");
+    setRoomId("");
+    Promise.all([
+      apiRequest<BuildingRow[]>(`/facility/building/get/${effectiveTargetOrgId}`).catch(() => []),
+      apiRequest<RoomRow[]>(`/facility/room/get?organizationID=${effectiveTargetOrgId}`).catch(() => []),
+      fetchOrganizationUsers(effectiveTargetOrgId, 1, 200, 2).catch(() => ({ data: [] })),
+    ]).then(([blds, rms, usersRes]) => {
+      setBuildings(Array.isArray(blds) ? blds : []);
+      setAllRooms(Array.isArray(rms) ? rms : []);
+      setOrgUsers((usersRes as { data?: OrgUserRow[] })?.data ?? []);
+    });
+  }, [effectiveTargetOrgId]);
+
   const submit = async () => {
     if (!assetId) {
       toast.error("เลือกครุภัณฑ์");
+      return;
+    }
+    if (!toUserId) {
+      toast.error("เลือกผู้รับปลายทาง");
+      return;
+    }
+    if (!buildingId || !roomId) {
+      toast.error("เลือกอาคารและห้องปลายทาง");
       return;
     }
     try {
@@ -77,6 +131,9 @@ export function TransferPage() {
         assetId: Number(assetId),
         transferType,
         targetOrganizationId: targetOrgId ? Number(targetOrgId) : undefined,
+        toUserId: Number(toUserId),
+        targetBuildingId: Number(buildingId),
+        targetRoomId: Number(roomId),
         reason,
         submit: true,
       });
@@ -84,31 +141,26 @@ export function TransferPage() {
       setReason("");
       setAssetId("");
       setTargetOrgId("");
+      setToUserId("");
+      setBuildingId("");
+      setRoomId("");
       load();
     } catch {
       toast.error("บันทึกไม่สำเร็จ");
     }
   };
 
-  const accept = async (id: number) => {
-    try {
-      await acceptIncomingTransfer(id);
-      toast.success("รับโอนครุภัณฑ์แล้ว");
-      load();
-    } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "รับโอนไม่สำเร็จ");
-    }
-  };
-
-  const incoming = rows.filter((r) => r.direction === "incoming");
   const outgoing = rows.filter((r) => r.direction !== "incoming");
+
+  const locationLabel = (r: TransferRecord) =>
+    [r.toUserName, r.targetBuildingName, r.targetRoomName].filter(Boolean).join(" · ");
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">โอนย้ายครุภัณฑ์</h1>
+        <h1 className="text-2xl font-bold tracking-tight">ทำรายการโอนย้าย</h1>
         <p className="text-muted-foreground text-sm">
-          ภายในหน่วยงานหรือข้ามหน่วยงานลูก/แม่ — หน่วยปลายทางต้องกดรับเมื่ออนุมัติแล้ว
+          ระบุผู้รับและสถานที่ปลายทาง — หน่วยปลายทางต้องกดรับเมื่ออนุมัติแล้ว
         </p>
       </div>
 
@@ -147,6 +199,61 @@ export function TransferPage() {
           </div>
         )}
         <div className="space-y-2">
+          <Label>คนรับปลายทาง</Label>
+          <Select value={toUserId} onValueChange={setToUserId}>
+            <SelectTrigger>
+              <SelectValue placeholder="เลือกผู้รับ" />
+            </SelectTrigger>
+            <SelectContent>
+              {orgUsers.map((u) => {
+                const id = u.user?.id ?? u.userID;
+                if (!id) return null;
+                return (
+                  <SelectItem key={id} value={String(id)}>
+                    {userLabel(u)}
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>อาคารปลายทาง</Label>
+          <Select
+            value={buildingId}
+            onValueChange={(v) => {
+              setBuildingId(v);
+              setRoomId("");
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="เลือกอาคาร" />
+            </SelectTrigger>
+            <SelectContent>
+              {buildings.map((b) => (
+                <SelectItem key={b.id} value={String(b.id)}>
+                  {b.buildingName ?? b.name ?? b.id}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>ห้องปลายทาง</Label>
+          <Select value={roomId} onValueChange={setRoomId} disabled={!buildingId}>
+            <SelectTrigger>
+              <SelectValue placeholder={buildingId ? "เลือกห้อง" : "เลือกอาคารก่อน"} />
+            </SelectTrigger>
+            <SelectContent>
+              {filteredRooms.map((r) => (
+                <SelectItem key={r.id} value={String(r.id)}>
+                  {r.roomName ?? r.name ?? r.id}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
           <Label>ประเภท</Label>
           <Select value={transferType} onValueChange={(v) => setTransferType(v as "temporary" | "permanent")}>
             <SelectTrigger>
@@ -165,41 +272,20 @@ export function TransferPage() {
         <Button onClick={submit}>ส่งอนุมัติ</Button>
       </div>
 
-      {incoming.length > 0 && (
-        <div>
-          <h2 className="mb-2 font-semibold">รอรับโอน (เข้า)</h2>
-          <ul className="divide-y rounded-lg border">
-            {incoming.map((r) => (
-              <li key={r.id} className="flex items-center justify-between gap-2 p-3 text-sm">
-                <span>
-                  {r.assetNumber ?? r.assetId} · {r.transferType === "permanent" ? "ถาวร" : "ชั่วคราว"}
-                </span>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary">{r.status}</Badge>
-                  {r.status === "pending_target_approval" && (
-                    <span className="text-muted-foreground text-xs">รออนุมัติที่คิวอนุมัติ</span>
-                  )}
-                  {r.status === "pending_target" && roleID <= 2 && (
-                    <Button size="sm" onClick={() => accept(r.id)}>
-                      รับโอน (ยืนยัน)
-                    </Button>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
       <div>
         <h2 className="mb-2 font-semibold">รายการส่งออก</h2>
         <ul className="divide-y rounded-lg border">
           {outgoing.map((r) => (
             <li key={r.id} className="flex items-center justify-between gap-2 p-3 text-sm">
-              <span>
-                {r.assetNumber ?? r.assetId} · {r.transferType === "permanent" ? "ถาวร" : "ชั่วคราว"}
-                {r.targetOrganizationId ? ` → org ${r.targetOrganizationId}` : ""}
-              </span>
+              <div>
+                <span>
+                  {r.assetNumber ?? r.assetId} · {r.transferType === "permanent" ? "ถาวร" : "ชั่วคราว"}
+                  {r.targetOrganizationId ? ` → org ${r.targetOrganizationId}` : ""}
+                </span>
+                {locationLabel(r) && (
+                  <p className="text-muted-foreground text-xs">{locationLabel(r)}</p>
+                )}
+              </div>
               <Badge variant="outline">{r.status}</Badge>
             </li>
           ))}

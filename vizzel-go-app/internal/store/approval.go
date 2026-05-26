@@ -84,6 +84,8 @@ type TransferInput struct {
 	ToDeptID             int64
 	ToSectionID          int64
 	ToUserID             int64
+	TargetBuildingID     int64
+	TargetRoomID         int64
 	Reason               string
 	RequestedBy          int64
 }
@@ -98,8 +100,21 @@ type TransferRecord struct {
 	Reason               string `json:"reason,omitempty"`
 	ApprovalInstanceID   int64  `json:"approvalInstanceId,omitempty"`
 	TargetOrganizationID int64  `json:"targetOrganizationId,omitempty"`
+	ToUserID             int64  `json:"toUserId,omitempty"`
+	ToUserName           string `json:"toUserName,omitempty"`
+	TargetBuildingID     int64  `json:"targetBuildingId,omitempty"`
+	TargetBuildingName   string `json:"targetBuildingName,omitempty"`
+	TargetRoomID         int64  `json:"targetRoomId,omitempty"`
+	TargetRoomName       string `json:"targetRoomName,omitempty"`
 	Direction            string `json:"direction,omitempty"`
 	CreatedAt            string `json:"createdAt"`
+}
+
+type TransferDashboardStats struct {
+	PendingOutgoing int64 `json:"pendingOutgoing"`
+	PendingIncoming int64 `json:"pendingIncoming"`
+	Completed       int64 `json:"completed"`
+	Total           int64 `json:"total"`
 }
 
 func (s *postgresStore) approvalEnabled(ctx context.Context) bool {

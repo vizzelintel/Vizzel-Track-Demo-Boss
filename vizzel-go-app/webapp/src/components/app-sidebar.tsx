@@ -9,7 +9,6 @@ import {
   FileText,
   Database,
   Bolt,
-  FileJson,
   Command,
   ArrowLeftRight,
   Shield,
@@ -182,22 +181,6 @@ export function AppSidebar({
     ],
   };
 
-  const repairMenu: NavMainItem = {
-    title: "แจ้งซ่อมบำรุง",
-    url: "/repair",
-    icon: Bolt,
-    disabled: false,
-    testId: TEST_IDS.SIDEBAR.LINK_REPAIR,
-  };
-
-  const withdrawalMenu: NavMainItem = {
-    title: "เบิก/ยืม",
-    url: "/withdrawal",
-    icon: FileJson, // Using FileJson as a placeholder icon, user can change later
-    disabled: false,
-    testId: TEST_IDS.SIDEBAR.LINK_WITHDRAWAL,
-  };
-
   let navMain: NavMainItem[] = [];
 
   if (roleID === 4) {
@@ -283,15 +266,10 @@ export function AppSidebar({
       badge: !showWithdrawal ? "Pro" : undefined,
       testId: TEST_IDS.SIDEBAR.LINK_WITHDRAWAL,
       items: [
-        // 1. Dashboard (Overview) - Top for Admins (Role 1 & 2)
         ...([1, 2].includes(roleID as number)
           ? [{ title: "ภาพรวม", url: "/withdrawal/dashboard" }]
           : []),
-
-        // 2. Request (Withdraw/Borrow) - Everyone (except Role 4 logic handled elsewhere)
         { title: "ทำรายการเบิก-ยืม", url: "/withdrawal" },
-
-        // 3. Approval - Admins (Role 1 & 2)
         ...([1, 2].includes(roleID as number)
           ? [
               { title: "อนุมัติการเบิก-ยืม", url: "/withdrawal-approval" },
@@ -302,9 +280,40 @@ export function AppSidebar({
     },
     {
       title: "โอนย้ายครุภัณฑ์",
-      url: "/transfer",
+      url: "#",
       icon: ArrowLeftRight,
       disabled: !showMainSystem,
+      badge: !showMainSystem ? "Pro" : undefined,
+      items: [
+        ...([1, 2].includes(roleID as number)
+          ? [{ title: "ภาพรวม", url: "/transfer/dashboard" }]
+          : []),
+        { title: "ทำรายการโอนย้าย", url: "/transfer" },
+        ...([1, 2].includes(roleID as number)
+          ? [
+              { title: "อนุมัติโอนย้าย", url: "/approval-queue?workflow=transfer" },
+              { title: "คิวอนุมัติ (รวม)", url: "/approval-queue" },
+            ]
+          : []),
+        { title: "รายการขาเข้า", url: "/transfer/incoming" },
+      ],
+    },
+    {
+      title: "แจ้งซ่อมบำรุง",
+      url: "#",
+      icon: Bolt,
+      disabled: !showMainSystem,
+      badge: !showMainSystem ? "Pro" : undefined,
+      testId: TEST_IDS.SIDEBAR.LINK_REPAIR,
+      items: [
+        ...([1, 2].includes(roleID as number)
+          ? [{ title: "ภาพรวม", url: "/repair/dashboard" }]
+          : []),
+        { title: "แจ้งซ่อม", url: "/repair" },
+        ...([1, 2].includes(roleID as number)
+          ? [{ title: "คิวอนุมัติ", url: "/approval-queue?workflow=repair" }]
+          : []),
+      ],
     },
     ...([1, 2].includes(roleID as number)
       ? [

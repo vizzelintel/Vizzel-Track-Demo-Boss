@@ -10,16 +10,32 @@ func (s *postgresStore) ListTransfers(ctx context.Context, orgID int64) ([]Trans
 		`SELECT * FROM (
 		 SELECT t.id, t.asset_id, COALESCE(a.asset_number,''), COALESCE(t.component_id,0),
 		        t.transfer_type, t.status, COALESCE(t.reason,''), COALESCE(t.approval_instance_id,0),
-		        t.created_at::text, COALESCE(t.target_organization_id,0), 'outgoing'
+		        t.created_at::text, COALESCE(t.target_organization_id,0),
+		        COALESCE(t.to_user_id,0),
+		        TRIM(COALESCE(u.name,'') || ' ' || COALESCE(u.surname,'')),
+		        COALESCE(t.target_building_id,0), COALESCE(b.building_name,''),
+		        COALESCE(t.target_room_id,0), COALESCE(r.room_name, r.room_number, ''),
+		        'outgoing'
 		 FROM tab_asset_transfer t
 		 LEFT JOIN tab_asset a ON a.id = t.asset_id
+		 LEFT JOIN tab_user u ON u.id = t.to_user_id
+		 LEFT JOIN tab_building b ON b.id = t.target_building_id
+		 LEFT JOIN tab_room r ON r.id = t.target_room_id
 		 WHERE t.organization_id = $1 AND t.deleted_at IS NULL
 		 UNION ALL
 		 SELECT t.id, t.asset_id, COALESCE(a.asset_number,''), COALESCE(t.component_id,0),
 		        t.transfer_type, t.status, COALESCE(t.reason,''), COALESCE(t.approval_instance_id,0),
-		        t.created_at::text, COALESCE(t.target_organization_id,0), 'incoming'
+		        t.created_at::text, COALESCE(t.target_organization_id,0),
+		        COALESCE(t.to_user_id,0),
+		        TRIM(COALESCE(u.name,'') || ' ' || COALESCE(u.surname,'')),
+		        COALESCE(t.target_building_id,0), COALESCE(b.building_name,''),
+		        COALESCE(t.target_room_id,0), COALESCE(r.room_name, r.room_number, ''),
+		        'incoming'
 		 FROM tab_asset_transfer t
 		 LEFT JOIN tab_asset a ON a.id = t.asset_id
+		 LEFT JOIN tab_user u ON u.id = t.to_user_id
+		 LEFT JOIN tab_building b ON b.id = t.target_building_id
+		 LEFT JOIN tab_room r ON r.id = t.target_room_id
 		 WHERE t.target_organization_id = $2 AND t.status IN ('pending_target', 'pending_target_approval') AND t.deleted_at IS NULL
 		 ) u ORDER BY created_at DESC LIMIT 200`,
 		orgID, orgID,
@@ -33,12 +49,28 @@ func (s *postgresStore) ListTransfers(ctx context.Context, orgID int64) ([]Trans
 		var tr TransferRecord
 		if err := rows.Scan(&tr.ID, &tr.AssetID, &tr.AssetNumber, &tr.ComponentID,
 			&tr.TransferType, &tr.Status, &tr.Reason, &tr.ApprovalInstanceID, &tr.CreatedAt,
-			&tr.TargetOrganizationID, &tr.Direction); err != nil {
+			&tr.TargetOrganizationID, &tr.ToUserID, &tr.ToUserName,
+			&tr.TargetBuildingID, &tr.TargetBuildingName, &tr.TargetRoomID, &tr.TargetRoomName,
+			&tr.Direction); err != nil {
 			return nil, err
 		}
 		out = append(out, tr)
 	}
 	return out, rows.Err()
+}
+
+func (s *postgresStore) TransferDashboardStats(ctx context.Context, orgID int64) (TransferDashboardStats, error) {
+	var st TransferDashboardStats
+	err := s.pool.QueryRow(ctx,
+		`SELECT
+			COALESCE(SUM(CASE WHEN organization_id = $1 AND status NOT IN ('completed','rejected','draft') THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN target_organization_id = $1 AND status IN ('pending_target','pending_target_approval') THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN (organization_id = $1 OR target_organization_id = $1) AND status = 'completed' THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN organization_id = $1 OR target_organization_id = $1 THEN 1 ELSE 0 END), 0)
+		 FROM tab_asset_transfer WHERE deleted_at IS NULL`,
+		orgID,
+	).Scan(&st.PendingOutgoing, &st.PendingIncoming, &st.Completed, &st.Total)
+	return st, err
 }
 
 func (s *postgresStore) CreateTransfer(ctx context.Context, orgID int64, in TransferInput) (int64, error) {
@@ -47,11 +79,13 @@ func (s *postgresStore) CreateTransfer(ctx context.Context, orgID int64, in Tran
 		`INSERT INTO tab_asset_transfer (
 			organization_id, asset_id, component_id, transfer_type, target_organization_id,
 			to_institute_id, to_dept_id, to_section_id, to_user_id,
+			target_building_id, target_room_id,
 			reason, status, requested_by
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'draft',$11) RETURNING id`,
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'draft',$13) RETURNING id`,
 		orgID, in.AssetID, nullInt64(in.ComponentID), in.TransferType, nullInt64(in.TargetOrganizationID),
 		nullInt64(in.ToInstituteID), nullInt64(in.ToDeptID), nullInt64(in.ToSectionID),
-		nullInt64(in.ToUserID), in.Reason, nullInt64(in.RequestedBy),
+		nullInt64(in.ToUserID), nullInt64(in.TargetBuildingID), nullInt64(in.TargetRoomID),
+		in.Reason, nullInt64(in.RequestedBy),
 	).Scan(&id)
 	return id, err
 }
@@ -59,12 +93,19 @@ func (s *postgresStore) CreateTransfer(ctx context.Context, orgID int64, in Tran
 func (s *postgresStore) AcceptTransferAtTarget(ctx context.Context, targetOrgID, transferID int64) error {
 	var transferType string
 	var assetID int64
+	var buildingID, roomID int64
+	var buildingName, roomName string
 	err := s.pool.QueryRow(ctx,
-		`SELECT transfer_type, asset_id FROM tab_asset_transfer
-		 WHERE id = $1 AND target_organization_id = $2
-		   AND status IN ('pending_target', 'pending_target_approval') AND deleted_at IS NULL`,
+		`SELECT t.transfer_type, t.asset_id,
+		        COALESCE(t.target_building_id,0), COALESCE(t.target_room_id,0),
+		        COALESCE(b.building_name,''), COALESCE(r.room_name, r.room_number, '')
+		 FROM tab_asset_transfer t
+		 LEFT JOIN tab_building b ON b.id = t.target_building_id
+		 LEFT JOIN tab_room r ON r.id = t.target_room_id
+		 WHERE t.id = $1 AND t.target_organization_id = $2
+		   AND t.status IN ('pending_target', 'pending_target_approval') AND t.deleted_at IS NULL`,
 		transferID, targetOrgID,
-	).Scan(&transferType, &assetID)
+	).Scan(&transferType, &assetID, &buildingID, &roomID, &buildingName, &roomName)
 	if err != nil {
 		return fmt.Errorf("transfer not pending at target org")
 	}
@@ -75,11 +116,19 @@ func (s *postgresStore) AcceptTransferAtTarget(ctx context.Context, targetOrgID,
 	if err != nil {
 		return err
 	}
-	if transferType == "permanent" && assetID > 0 {
-		_, _ = s.pool.Exec(ctx,
-			`UPDATE tab_asset SET organization_id = $2, updated_at = NOW() WHERE id = $1`,
-			assetID, targetOrgID,
-		)
+	if assetID > 0 {
+		if transferType == "permanent" {
+			_, _ = s.pool.Exec(ctx,
+				`UPDATE tab_asset SET organization_id = $2, updated_at = NOW() WHERE id = $1`,
+				assetID, targetOrgID,
+			)
+		}
+		if roomID > 0 || buildingName != "" {
+			_, _ = s.pool.Exec(ctx,
+				`UPDATE tab_asset SET room_id = NULLIF($2,0), building_name = NULLIF($3,''), room_name = NULLIF($4,''), updated_at = NOW() WHERE id = $1`,
+				assetID, roomID, buildingName, roomName,
+			)
+		}
 	}
 	return nil
 }

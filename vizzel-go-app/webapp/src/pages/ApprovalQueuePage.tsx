@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { approvalAction, listPendingApprovals, type ApprovalInstance } from "@/lib/approval";
 import { useUser } from "@/hooks/use-user";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,8 @@ const workflowLabels: Record<string, string> = {
 export function ApprovalQueuePage() {
   const { user } = useUser();
   const roleID = user?.organizationRelation?.roleID ?? 4;
+  const [searchParams] = useSearchParams();
+  const workflowFilter = searchParams.get("workflow") ?? "";
   const [items, setItems] = useState<ApprovalInstance[]>([]);
   const [loading, setLoading] = useState(true);
   const [note, setNote] = useState("");
@@ -37,6 +40,16 @@ export function ApprovalQueuePage() {
     load();
   }, [load]);
 
+  const filteredItems = useMemo(() => {
+    if (!workflowFilter) return items;
+    if (workflowFilter === "transfer") {
+      return items.filter(
+        (i) => i.workflowCode === "transfer" || i.workflowCode === "transfer_receive",
+      );
+    }
+    return items.filter((i) => i.workflowCode === workflowFilter);
+  }, [items, workflowFilter]);
+
   const act = async (id: number, action: "approve" | "reject", branch?: "A" | "B") => {
     try {
       await approvalAction(id, { action, branch, note });
@@ -48,12 +61,17 @@ export function ApprovalQueuePage() {
     }
   };
 
+  const filterLabel = workflowFilter
+    ? workflowLabels[workflowFilter] ?? workflowFilter
+    : null;
+
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">คิวอนุมัติ</h1>
         <p className="text-muted-foreground text-sm">
           บทบาทของคุณ: role {roleID} — หัวหน้างาน (3+) · ผอ./เลขา/นายก (2+)
+          {filterLabel ? ` · กรอง: ${filterLabel}` : ""}
         </p>
       </div>
       <Textarea
@@ -64,11 +82,11 @@ export function ApprovalQueuePage() {
       />
       {loading ? (
         <p className="text-muted-foreground text-sm">กำลังโหลด...</p>
-      ) : items.length === 0 ? (
+      ) : filteredItems.length === 0 ? (
         <p className="text-muted-foreground text-sm">ไม่มีรายการรออนุมัติ</p>
       ) : (
         <ul className="divide-y rounded-lg border">
-          {items.map((item) => (
+          {filteredItems.map((item) => (
             <li key={item.id} className="flex flex-wrap items-center gap-3 p-4">
               <div className="min-w-0 flex-1">
                 <p className="font-medium">

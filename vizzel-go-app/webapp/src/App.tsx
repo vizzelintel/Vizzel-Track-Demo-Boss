@@ -123,6 +123,12 @@ const ApprovalQueuePage = lazy(() =>
 const TransferPage = lazy(() =>
   import("./pages/TransferPage").then((m) => ({ default: m.TransferPage })),
 );
+const TransferDashboardPage = lazy(() =>
+  import("./pages/TransferDashboardPage").then((m) => ({ default: m.TransferDashboardPage })),
+);
+const TransferIncomingPage = lazy(() =>
+  import("./pages/TransferIncomingPage").then((m) => ({ default: m.TransferIncomingPage })),
+);
 const RepairWorkflowPage = lazy(() =>
   import("./pages/RepairWorkflowPage").then((m) => ({ default: m.RepairWorkflowPage })),
 );
@@ -451,6 +457,14 @@ export default function App() {
           }
         />
         <Route
+          path="/repair/dashboard"
+          element={
+            <Lazy>
+              <RepairDashboardPage />
+            </Lazy>
+          }
+        />
+        <Route
           path="/approval-queue"
           element={
             <Lazy>
@@ -463,6 +477,22 @@ export default function App() {
           element={
             <Lazy>
               <TransferPage />
+            </Lazy>
+          }
+        />
+        <Route
+          path="/transfer/dashboard"
+          element={
+            <Lazy>
+              <TransferDashboardPage />
+            </Lazy>
+          }
+        />
+        <Route
+          path="/transfer/incoming"
+          element={
+            <Lazy>
+              <TransferIncomingPage />
             </Lazy>
           }
         />

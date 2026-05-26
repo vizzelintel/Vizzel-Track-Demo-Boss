@@ -9,6 +9,12 @@ export interface TransferRecord {
   status: string;
   reason?: string;
   targetOrganizationId?: number;
+  toUserId?: number;
+  toUserName?: string;
+  targetBuildingId?: number;
+  targetBuildingName?: string;
+  targetRoomId?: number;
+  targetRoomName?: string;
   direction?: 'incoming' | 'outgoing';
   createdAt?: string;
 }
@@ -18,9 +24,21 @@ export interface OrgTarget {
   title: string;
 }
 
+export interface TransferDashboardStats {
+  pendingOutgoing: number;
+  pendingIncoming: number;
+  completed: number;
+  total: number;
+}
+
 export async function listTransfers(): Promise<TransferRecord[]> {
   const r = await apiRequest<{ data: TransferRecord[] }>('/transfer/list');
   return r?.data ?? [];
+}
+
+export async function getTransferDashboardStats(): Promise<TransferDashboardStats> {
+  const r = await apiRequest<{ data: TransferDashboardStats }>('/transfer/dashboard-stats');
+  return r?.data ?? { pendingOutgoing: 0, pendingIncoming: 0, completed: 0, total: 0 };
 }
 
 export async function listTransferTargets(): Promise<OrgTarget[]> {
@@ -36,6 +54,9 @@ export function createTransfer(payload: {
   componentId?: number;
   transferType: 'temporary' | 'permanent';
   targetOrganizationId?: number;
+  toUserId?: number;
+  targetBuildingId?: number;
+  targetRoomId?: number;
   reason?: string;
   submit?: boolean;
 }) {
