@@ -66,6 +66,14 @@ SELECT setval(pg_get_serial_sequence('tab_asset_type','id'),
 SELECT setval(pg_get_serial_sequence('tab_asset_class','id'),
               GREATEST((SELECT COALESCE(MAX(id),0) FROM tab_asset_class), 9300));
 
+-- Bump the tab_asset sequence past any rows that 010_sync_demo_to_tab.sql
+-- inserted with explicit IDs (the BIGSERIAL sequence was never advanced,
+-- so a plain INSERT without an ID would otherwise reuse id=1).
+SELECT setval(pg_get_serial_sequence('tab_asset','id'),
+              GREATEST((SELECT COALESCE(MAX(id),0) FROM tab_asset), 1));
+SELECT setval(pg_get_serial_sequence('tab_asset_address','id'),
+              GREATEST((SELECT COALESCE(MAX(id),0) FROM tab_asset_address), 1));
+
 -- 6. Seed ~20 realistic government assets (idempotent by asset_number) --------
 INSERT INTO tab_asset (
     asset_number, elaas_code, asset_name, asset_details, asset_class_id, asset_value,
