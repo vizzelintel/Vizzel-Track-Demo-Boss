@@ -4,6 +4,21 @@ import { unwrapListRows } from "@/lib/list-response";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { DataTable, type Column } from "./DataTable";
 
 export type ListRow = {
@@ -107,11 +122,11 @@ export function EntityCrudPage({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
         <CardTitle className="text-lg">{title}</CardTitle>
         {entityKind && (
-          <Button className="h-8 px-3 text-xs" onClick={openCreate}>
-            + {createLabel}
+          <Button size="sm" onClick={openCreate}>
+            {createLabel}
           </Button>
         )}
       </CardHeader>
@@ -124,38 +139,49 @@ export function EntityCrudPage({
           onDelete={entityKind ? remove : undefined}
         />
       </CardContent>
-      {dialogOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-background w-full max-w-md rounded-xl border border-border p-6 shadow-lg">
-            <h3 className="mb-4 text-lg font-semibold">{editId ? "แก้ไข" : "เพิ่ม"}</h3>
-            <label className="text-muted-foreground mb-1 block text-xs">ชื่อ</label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} className="mb-3" />
-            {parentField && !editId && (
-              <>
-                <label className="text-muted-foreground mb-1 block text-xs">{parentField.label}</label>
-                <select
-                  className="border-input bg-background mb-4 h-9 w-full rounded-md border px-2 text-sm"
-                  value={parentId}
-                  onChange={(e) => setParentId(e.target.value)}
-                >
-                  <option value="">— เลือก —</option>
-                  {parents.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title}
-                    </option>
-                  ))}
-                </select>
-              </>
-            )}
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                ยกเลิก
-              </Button>
-              <Button onClick={save}>บันทึก</Button>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editId ? "แก้ไข" : "เพิ่ม"} {title}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="entity-name">ชื่อ</Label>
+              <Input
+                id="entity-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
             </div>
+            {parentField && !editId && (
+              <div className="space-y-2">
+                <Label>{parentField.label}</Label>
+                <Select value={parentId || undefined} onValueChange={setParentId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={`เลือก${parentField.label}`} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {parents.map((p) => (
+                      <SelectItem key={p.id} value={String(p.id)}>
+                        {p.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" type="button" onClick={() => setDialogOpen(false)}>
+              ยกเลิก
+            </Button>
+            <Button type="button" onClick={save}>
+              บันทึก
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
