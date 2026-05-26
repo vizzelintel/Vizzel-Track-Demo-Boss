@@ -88,6 +88,7 @@ type Store interface {
 	CreateTransfer(ctx context.Context, orgID int64, in TransferInput) (int64, error)
 	ListChildOrganizations(ctx context.Context, parentID int64) ([]Row, error)
 	ListTransferTargets(ctx context.Context, orgID int64) ([]Row, error)
+	AssertOrgAccessible(ctx context.Context, loginOrgID, targetOrgID int64) error
 	AcceptTransferAtTarget(ctx context.Context, targetOrgID, transferID int64) error
 	ListApprovalDelegates(ctx context.Context, orgID int64) ([]ApprovalDelegate, error)
 	SetApprovalDelegate(ctx context.Context, orgID int64, stepKey string, userID int64) error

@@ -37,6 +37,7 @@ import { useSession } from "next-auth/react";
 
 import { useOrganizationMenus } from "@/hooks/use-organization-menus";
 import { TEST_IDS } from "@/components/test-ids";
+import { useViewOrg } from "@/context/ViewOrgContext";
 
 export function AppSidebar({
   initialMenus = [],
@@ -59,6 +60,11 @@ export function AppSidebar({
     organizationID,
     initialMenus,
   );
+  const { viewOrg, accessibleOrgs } = useViewOrg();
+  const sidebarOrgName =
+    accessibleOrgs.length >= 2 && viewOrg?.title
+      ? viewOrg.title
+      : user?.organizationRelation?.organizationName || "Enterprise";
 
   if (loading && !user) {
     return (
@@ -331,7 +337,7 @@ export function AppSidebar({
                   </div>
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-medium">VizzelTrack</span>
-                    <span className="truncate text-xs">{user?.organizationRelation?.organizationName || "Enterprise"}</span>
+                    <span className="truncate text-xs">{sidebarOrgName}</span>
                   </div>
                 </Link>
               </SidebarMenuButton>

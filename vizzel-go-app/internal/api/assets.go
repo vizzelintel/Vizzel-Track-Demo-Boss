@@ -37,11 +37,16 @@ func (h *Handler) ListAssets(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *Handler) listAssetsPaged(w http.ResponseWriter, r *http.Request, orgID int64) {
+func (h *Handler) listAssetsPaged(w http.ResponseWriter, r *http.Request, loginOrgID int64) {
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	pageSize, _ := strconv.Atoi(r.URL.Query().Get("page_size"))
 	if pageSize == 0 {
 		pageSize, _ = strconv.Atoi(r.URL.Query().Get("limit"))
+	}
+	listOrgID, err := h.resolveScopedOrgID(r, loginOrgID)
+	if err != nil {
+		writeError(w, http.StatusForbidden, "organization not accessible")
+		return
 	}
 	f := store.AssetFilter{
 		Search:     r.URL.Query().Get("search"),
@@ -53,10 +58,12 @@ func (h *Handler) listAssetsPaged(w http.ResponseWriter, r *http.Request, orgID 
 	if v, err := strconv.ParseInt(r.URL.Query().Get("class_id"), 10, 64); err == nil && v > 0 {
 		f.ClassID = v
 	}
-	if r.URL.Query().Get("include_children") == "1" || r.URL.Query().Get("includeChildren") == "true" {
-		f.IncludeChildOrgs = true
+	if r.URL.Query().Get("organization_id") == "" && r.URL.Query().Get("organizationId") == "" {
+		if r.URL.Query().Get("include_children") == "1" || r.URL.Query().Get("includeChildren") == "true" {
+			f.IncludeChildOrgs = true
+		}
 	}
-	result, err := h.store.ListAssetsPaged(r.Context(), orgID, page, pageSize, f)
+	result, err := h.store.ListAssetsPaged(r.Context(), listOrgID, page, pageSize, f)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "list assets failed")
 		return

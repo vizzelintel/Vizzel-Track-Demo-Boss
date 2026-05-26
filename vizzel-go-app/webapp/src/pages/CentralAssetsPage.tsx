@@ -2,59 +2,52 @@
 
 import { useEffect, useState } from "react";
 import { apiRequest } from "@/lib/api";
-import { useUser } from "@/hooks/use-user";
-import { listChildOrganizations } from "@/lib/transfer";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import { useViewOrg } from "@/context/ViewOrgContext";
 
 export function CentralAssetsPage() {
-  const { user } = useUser();
-  const orgID = user?.organizationRelation?.organizationID;
-  const [includeChildren, setIncludeChildren] = useState(false);
-  const [children, setChildren] = useState<{ id: number; title: string }[]>([]);
+  const { viewOrgId, viewOrg } = useViewOrg();
   const [assets, setAssets] = useState<unknown[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    listChildOrganizations().then(setChildren).catch(() => setChildren([]));
-  }, []);
-
-  useEffect(() => {
-    if (!orgID) return;
-    const q = includeChildren ? "&include_children=1" : "";
-    apiRequest(`/api/v1/assets?page=1&page_size=50${q}`)
+    if (!viewOrgId) return;
+    setLoading(true);
+    apiRequest(`/api/v1/assets?page=1&page_size=50&organization_id=${viewOrgId}`)
       .then((res: { data?: unknown[] }) => setAssets(res?.data ?? []))
-      .catch(() => setAssets([]));
-  }, [orgID, includeChildren]);
+      .catch(() => setAssets([]))
+      .finally(() => setLoading(false));
+  }, [viewOrgId]);
 
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">ทรัพย์สินรวม (หน่วยงานย่อย)</h1>
+        <h1 className="text-2xl font-bold tracking-tight">ทรัพย์สินหน่วยงานย่อย</h1>
         <p className="text-muted-foreground text-sm">
-          ดูครุภัณฑ์ของหน่วยงานลูกที่ผูก parent_organization_id
+          แสดงครุภัณฑ์ขององค์กรที่เลือก — เปลี่ยนองค์กรได้จากเมนูโปรไฟล์
         </p>
       </div>
-      {children.length > 0 && (
-        <p className="text-sm">
-          หน่วยงานย่อย: {children.map((c) => c.title || c.id).join(", ")}
+      {viewOrg && (
+        <p className="text-sm font-medium">
+          องค์กรที่กำลังดู: <span className="text-primary">{viewOrg.title}</span>
         </p>
       )}
-      <div className="flex items-center gap-2">
-        <Switch id="inc" checked={includeChildren} onCheckedChange={setIncludeChildren} />
-        <Label htmlFor="inc">รวมทรัพย์สินหน่วยงานย่อย</Label>
-      </div>
       <ul className="divide-y rounded-lg border text-sm">
-        {(assets as { asset_number?: string; assetNumber?: string; asset_name?: string; assetName?: string; organization_id?: number }[]).map(
-          (a, i) => (
-            <li key={i} className="p-3">
-              {(a.assetNumber ?? a.asset_number) || "—"} — {(a.assetName ?? a.asset_name) || "—"}
-              {a.organization_id ? ` (org ${a.organization_id})` : ""}
-            </li>
-          ),
+        {(assets as {
+          asset_number?: string;
+          assetNumber?: string;
+          asset_name?: string;
+          assetName?: string;
+          organization_id?: number;
+        }[]).map((a, i) => (
+          <li key={i} className="p-3">
+            {(a.assetNumber ?? a.asset_number) || "—"} — {(a.assetName ?? a.asset_name) || "—"}
+            {a.organization_id ? ` (org ${a.organization_id})` : ""}
+          </li>
+        ))}
+        {!loading && assets.length === 0 && (
+          <li className="text-muted-foreground p-3">ไม่มีข้อมูลทรัพย์สินสำหรับองค์กรนี้</li>
         )}
-        {assets.length === 0 && (
-          <li className="text-muted-foreground p-3">ไม่มีข้อมูล — เปิดสวิตช์หรือตั้ง parent org ใน migration 016</li>
-        )}
+        {loading && <li className="text-muted-foreground p-3">กำลังโหลด...</li>}
       </ul>
     </div>
   );

@@ -33,6 +33,7 @@ export function useUser() {
       organizationRelation: {
         roleID,
         organizationID: organizationID ?? 1,
+        organizationName: user.organization?.name ?? "Enterprise",
       },
     };
   }, [user]);

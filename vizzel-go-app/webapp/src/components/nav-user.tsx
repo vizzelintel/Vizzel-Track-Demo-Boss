@@ -30,6 +30,14 @@ import {
 } from "@/components/ui/sidebar";
 import { useLogout } from "@/hooks/use-logout";
 import { TEST_IDS } from "@/components/test-ids";
+import { useViewOrg } from "@/context/ViewOrgContext";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export function NavUser({
   user,
@@ -47,6 +55,8 @@ export function NavUser({
   const { isMobile, setOpenMobile } = useSidebar();
   const { logout } = useLogout();
   const router = useRouter();
+  const { accessibleOrgs, viewOrgId, setViewOrgId } = useViewOrg();
+  const showOrgSwitcher = accessibleOrgs.length >= 2;
 
   const goTo = (path: string) => {
     router.push(path);
@@ -115,6 +125,35 @@ export function NavUser({
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            {showOrgSwitcher && viewOrgId != null && (
+              <>
+                <DropdownMenuLabel className="text-muted-foreground text-xs">
+                  เปลี่ยนองค์กร
+                </DropdownMenuLabel>
+                <div
+                  className="px-2 pb-2"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Select
+                    value={String(viewOrgId)}
+                    onValueChange={(v) => setViewOrgId(Number(v))}
+                  >
+                    <SelectTrigger className="h-8 w-full" data-testid={TEST_IDS.NAV_USER.SELECT_ORGANIZATION}>
+                      <SelectValue placeholder="เลือกองค์กร" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {accessibleOrgs.map((org) => (
+                        <SelectItem key={org.id} value={String(org.id)}>
+                          {org.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <DropdownMenuSeparator />
+              </>
+            )}
             {isSuperAdmin && (
               <>
                 <DropdownMenuGroup>
