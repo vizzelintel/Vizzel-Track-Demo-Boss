@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 )
 
@@ -113,17 +112,88 @@ func (s *postgresStore) listOrgUsersFallback(ctx context.Context, orgID int64) (
 }
 
 var (
-	ErrOrgUserRequestNotFound = errors.New("request not found")
+	ErrOrgUserInvalidRequest   = errors.New("invalid request")
+	ErrOrgUserRequestNotFound  = errors.New("request not found")
 	ErrOrgUserRequestProcessed = errors.New("request already processed")
 	ErrOrgUserVerifyForbidden  = errors.New("you cannot verify this organization")
 )
 
+func (s *postgresStore) canApproveOrgUserRequest(ctx context.Context, approverUserID, orgID, approverRoleID int64) (bool, error) {
+	var ok bool
+	err := s.pool.QueryRow(ctx,
+		`SELECT EXISTS (
+			SELECT 1 FROM tab_user_organization_role
+			WHERE user_id = $1 AND organization_id = $2
+			  AND role_id IN (1, 2) AND verify = 2 AND status = TRUE
+			  AND deleted_at IS NULL
+		)`,
+		approverUserID, orgID,
+	).Scan(&ok)
+	if err != nil {
+		return false, err
+	}
+	if ok {
+		return true, nil
+	}
+
+	err = s.pool.QueryRow(ctx,
+		`SELECT EXISTS (
+			SELECT 1 FROM users
+			WHERE id = $1 AND organization_id = $2 AND COALESCE(role_id, 2) IN (1, 2)
+		)`,
+		approverUserID, orgID,
+	).Scan(&ok)
+	if err != nil {
+		return false, err
+	}
+	if ok {
+		return true, nil
+	}
+
+	err = s.pool.QueryRow(ctx,
+		`SELECT EXISTS (
+			SELECT 1 FROM users u
+			WHERE u.id = $1 AND COALESCE(u.role_id, 0) = 1
+			  AND (
+			    u.organization_id = $2
+			    OR EXISTS (
+			      SELECT 1 FROM org_access oa
+			      WHERE oa.user_id = u.id AND oa.organization_id = $2 AND oa.role_id IN (1, 2)
+			    )
+			  )
+		)`,
+		approverUserID, orgID,
+	).Scan(&ok)
+	if err != nil {
+		return false, err
+	}
+	if ok {
+		return true, nil
+	}
+
+	if approverRoleID == 1 || approverRoleID == 2 {
+		err = s.pool.QueryRow(ctx,
+			`SELECT EXISTS (
+				SELECT 1 FROM tab_user_organization_role
+				WHERE user_id = $1 AND organization_id = $2
+				  AND role_id IN (1, 2) AND deleted_at IS NULL
+			)`,
+			approverUserID, orgID,
+		).Scan(&ok)
+		if err != nil {
+			return false, err
+		}
+		if ok {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
 func (s *postgresStore) VerifyOrgUserRequest(ctx context.Context, orgID, relationID, approverUserID, approverRoleID int64, approve bool) error {
 	if relationID <= 0 || approverUserID <= 0 {
-		return fmt.Errorf("invalid request")
-	}
-	if approverRoleID != 1 && approverRoleID != 2 {
-		return ErrOrgUserVerifyForbidden
+		return ErrOrgUserInvalidRequest
 	}
 
 	var reqVerify int
@@ -143,16 +213,10 @@ func (s *postgresStore) VerifyOrgUserRequest(ctx context.Context, orgID, relatio
 		return ErrOrgUserRequestProcessed
 	}
 
-	var canApprove bool
-	_ = s.pool.QueryRow(ctx,
-		`SELECT EXISTS (
-			SELECT 1 FROM tab_user_organization_role
-			WHERE user_id = $1 AND organization_id = $2
-			  AND role_id IN (1, 2) AND verify = 2 AND status = TRUE
-			  AND deleted_at IS NULL
-		)`,
-		approverUserID, orgID,
-	).Scan(&canApprove)
+	canApprove, err := s.canApproveOrgUserRequest(ctx, approverUserID, orgID, approverRoleID)
+	if err != nil {
+		return err
+	}
 	if !canApprove {
 		return ErrOrgUserVerifyForbidden
 	}

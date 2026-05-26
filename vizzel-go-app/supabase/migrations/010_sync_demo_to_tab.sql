@@ -15,7 +15,9 @@ FROM users
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO tab_user_organization_role (user_id, organization_id, role_id, verify, status, created_at)
-SELECT u.id, u.organization_id, COALESCE(u.role_id, 2)::INT, 1, TRUE, u.created_at
+SELECT u.id, u.organization_id, COALESCE(u.role_id, 2)::INT,
+       CASE WHEN COALESCE(u.role_id, 2) IN (1, 2) THEN 2 ELSE 1 END,
+       TRUE, u.created_at
 FROM users u
 WHERE NOT EXISTS (
     SELECT 1 FROM tab_user_organization_role r

@@ -94,6 +94,15 @@ func (s *postgresStore) SyncDemoToTab(ctx context.Context) error {
 			return fmt.Errorf("sync tab: %w", err)
 		}
 	}
+	fix, err := readMigrationFile("021_org_admin_verify.sql")
+	if err != nil {
+		return err
+	}
+	for _, stmt := range splitSQL(string(fix)) {
+		if _, err := s.pool.Exec(ctx, stmt); err != nil {
+			return fmt.Errorf("sync tab admin verify: %w", err)
+		}
+	}
 	return nil
 }
 

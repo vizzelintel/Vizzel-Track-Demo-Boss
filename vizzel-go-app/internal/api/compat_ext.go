@@ -697,7 +697,7 @@ func (h *Handler) OrgVerify(w http.ResponseWriter, r *http.Request) {
 		Verify    bool  `json:"verify"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.RequestID <= 0 {
-		writeError(w, http.StatusBadRequest, "invalid request")
+		writeError(w, http.StatusBadRequest, "คำขอไม่ถูกต้อง กรุณาระบุ requestID และ verify")
 		return
 	}
 	if err := h.store.VerifyOrgUserRequest(
@@ -708,7 +708,8 @@ func (h *Handler) OrgVerify(w http.ResponseWriter, r *http.Request) {
 		claims.RoleID,
 		body.Verify,
 	); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		status, msg := orgVerifyStatusAndMessage(err)
+		writeError(w, status, msg)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
