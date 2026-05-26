@@ -61,6 +61,7 @@ func toCompatAsset(a store.Asset) map[string]any {
 		"getFrom":         a.GetFrom,
 		"availableAge":    a.AvailableAge,
 		"users":           users,
+		"componentCount":  a.ComponentCount,
 	}
 }
 

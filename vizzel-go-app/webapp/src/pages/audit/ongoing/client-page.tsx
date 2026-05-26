@@ -5,7 +5,7 @@ import { useRouter } from "@/shims/next-navigation";
 import { useSession } from "@/shims/next-auth";
 import useSWR, { mutate } from "swr";
 import { apiRequest } from "@/lib/api";
-import { Loader2, ArrowLeft, ScanLine } from "lucide-react";
+import { Loader2, ArrowLeft, ScanLine, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -14,6 +14,11 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  resolveScannedRfids,
+  type ResolveScanResponse,
+} from "@/lib/asset-components";
 import { IconCalendar, IconUser } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -50,6 +55,44 @@ export default function ClientAuditScanningPage({
 }: ClientAuditScanningPageProps) {
   const router = useRouter();
   const { data: session } = useSession();
+
+  // R2: bulk RFID scan resolver state.
+  const [scanText, setScanText] = useState("");
+  const [scanLoading, setScanLoading] = useState(false);
+  const [scanResult, setScanResult] = useState<ResolveScanResponse | null>(null);
+
+  const handleResolveScan = async () => {
+    const list = scanText
+      .split(/[\s,;\n\r\t]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (list.length === 0) {
+      toast.error("กรุณาวาง RFID อย่างน้อย 1 รายการ");
+      return;
+    }
+    setScanLoading(true);
+    try {
+      const res = await resolveScannedRfids(list);
+      setScanResult(res);
+      toast.success(
+        `ตรวจสอบ ${res.total} รายการ — ครบ ${res.complete.length}, ครบบางส่วน ${res.partial.length}, ไม่พบ ${res.unmatched.length}`,
+      );
+    } catch (err: any) {
+      console.error("resolve scan failed", err);
+      toast.error(`ตรวจสอบล้มเหลว: ${err?.message || err}`);
+    } finally {
+      setScanLoading(false);
+    }
+  };
+
+  const handleFileUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    setScanText(text);
+  };
 
   // Use the new API for assets/stats
   const { data: assetResponse } = useSWR(
@@ -284,6 +327,137 @@ export default function ClientAuditScanningPage({
           </Card>
           {/* Add a Placeholder/Summary Card to balance if needed, or leave as is but widen the grid */}
         </div>
+
+        {/* R2: Bulk RFID scan resolver */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ScanLine className="h-5 w-5" /> ตรวจนับด้วย RFID
+            </CardTitle>
+            <CardDescription>
+              วาง RFID ที่สแกนได้ (หนึ่งบรรทัดต่อหนึ่งรายการ)
+              หรืออัปโหลดไฟล์ CSV/TXT แล้วกด &ldquo;ตรวจสอบ&rdquo;
+              ระบบจะรวมเป็นรายทรัพย์สิน และแจ้งชิ้นที่ขาด
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Textarea
+              placeholder="RFID-001\nRFID-002\nRFID-410-00-2222-CPU"
+              value={scanText}
+              onChange={(e) => setScanText(e.target.value)}
+              rows={5}
+              className="font-mono text-xs"
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                onClick={handleResolveScan}
+                disabled={scanLoading}
+              >
+                {scanLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <ScanLine className="mr-2 h-4 w-4" />
+                )}
+                ตรวจสอบ
+              </Button>
+              <label className="inline-flex">
+                <Button asChild type="button" variant="outline">
+                  <span>
+                    <Upload className="mr-2 h-4 w-4" />
+                    เลือกไฟล์ CSV
+                  </span>
+                </Button>
+                <input
+                  type="file"
+                  accept=".csv,.txt"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
+              </label>
+              {scanResult && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setScanResult(null);
+                    setScanText("");
+                  }}
+                >
+                  ล้างผลลัพธ์
+                </Button>
+              )}
+            </div>
+
+            {scanResult && (
+              <div className="grid gap-3 md:grid-cols-3">
+                <Card className="border-green-200 bg-green-50/40">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm text-green-700">
+                      ✓ ครบ ({scanResult.complete.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-1 text-xs">
+                    {scanResult.complete.length === 0 ? (
+                      <p className="text-muted-foreground">ไม่มี</p>
+                    ) : (
+                      scanResult.complete.map((a) => (
+                        <div key={a.assetID} className="rounded border bg-white p-2">
+                          <div className="font-medium">{a.assetNumber}</div>
+                          <div className="text-muted-foreground">{a.assetName}</div>
+                          <div>{a.matched}/{a.total} ชิ้น</div>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+                <Card className="border-yellow-200 bg-yellow-50/40">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm text-yellow-700">
+                      ⚠ ครบบางส่วน ({scanResult.partial.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-1 text-xs">
+                    {scanResult.partial.length === 0 ? (
+                      <p className="text-muted-foreground">ไม่มี</p>
+                    ) : (
+                      scanResult.partial.map((a) => (
+                        <div key={a.assetID} className="rounded border bg-white p-2">
+                          <div className="font-medium">{a.assetNumber}</div>
+                          <div className="text-muted-foreground">{a.assetName}</div>
+                          <div>{a.matched}/{a.total} ชิ้น</div>
+                          {a.missingNames.length > 0 && (
+                            <div className="mt-1 text-yellow-700">
+                              ขาด: {a.missingNames.join(", ")}
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+                <Card className="border-red-200 bg-red-50/40">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm text-red-700">
+                      ✗ ไม่พบในระบบ ({scanResult.unmatched.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-1 text-xs">
+                    {scanResult.unmatched.length === 0 ? (
+                      <p className="text-muted-foreground">ไม่มี</p>
+                    ) : (
+                      <ul className="font-mono">
+                        {scanResult.unmatched.map((u) => (
+                          <li key={u.rfid}>{u.rfid}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Scanned Table */}
         <Card className="flex-1">

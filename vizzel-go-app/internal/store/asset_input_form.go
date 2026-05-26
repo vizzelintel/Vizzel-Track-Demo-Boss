@@ -1,6 +1,7 @@
 package store
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -63,6 +64,22 @@ func ParseAssetInputForm(r *http.Request) (AssetInput, error) {
 	statusName := get("assetStatusName", "asset_status_name")
 	statusID := parseInt("assetStatusID", "asset_status_id")
 	isCheck := get("isCheck", "is_check")
+	compsRaw := get("components")
+	var components []AssetComponentInput
+	hasComp := false
+	if compsRaw != "" {
+		hasComp = true
+		var arr []map[string]any
+		if err := json.Unmarshal([]byte(compsRaw), &arr); err == nil {
+			for _, m := range arr {
+				ci := componentFromMap(m)
+				if ci.ComponentName == "" && ci.RFIDNum == "" {
+					continue
+				}
+				components = append(components, ci)
+			}
+		}
+	}
 	// is_depreciation defaults to true when the field is absent (preserve historical
 	// behaviour), false when explicitly "false"/"0", true otherwise.
 	isDep := true
@@ -94,7 +111,9 @@ func ParseAssetInputForm(r *http.Request) (AssetInput, error) {
 		GetFrom:         get("getFrom", "get_from"),
 		SourceFundID:    parseInt("sourceFundID", "source_fund_id"),
 		AvailableAge:    parseInt("availableAge", "available_age"),
-		AssetValue:      parseInt("assetValue", "asset_value"),
-		UserID:          parseInt("userID", "user_id"),
+		AssetValue:       parseInt("assetValue", "asset_value"),
+		UserID:           parseInt("userID", "user_id"),
+		Components:       components,
+		HasComponentList: hasComp,
 	}, nil
 }

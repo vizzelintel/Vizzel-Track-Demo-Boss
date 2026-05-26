@@ -70,6 +70,13 @@ func New(cfg config.Config, st store.Store) http.Handler {
 			r.Get("/audit/history", h.ListAuditHistory)
 			r.Get("/audit/jobs/{id}", h.GetAuditJob)
 
+			r.Get("/assets/components/{assetID}", h.GetAssetComponents)
+			r.Post("/assets/components", h.CreateAssetComponent)
+			r.Patch("/assets/components/{componentID}", h.UpdateAssetComponent)
+			r.Delete("/assets/components/{componentID}", h.DeleteAssetComponent)
+			r.Post("/assets/components/bulk-replace/{assetID}", h.BulkReplaceAssetComponents)
+			r.Post("/assets/scan/resolve", h.ResolveScannedRFIDs)
+
 			r.Get("/repairs", h.ListRepairs)
 			r.Get("/withdrawals", h.ListWithdrawals)
 			r.Patch("/withdrawals/{id}/status", h.PatchWithdrawalStatus)

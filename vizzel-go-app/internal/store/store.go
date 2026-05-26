@@ -75,6 +75,13 @@ type Store interface {
 	ListProvinces(ctx context.Context) ([]Row, error)
 	ListDistricts(ctx context.Context, provinceID int64) ([]Row, error)
 	ListSubdistricts(ctx context.Context, districtID int64) ([]Row, error)
+
+	ListAssetComponents(ctx context.Context, assetID int64) ([]AssetComponent, error)
+	CreateAssetComponent(ctx context.Context, in AssetComponent) (int64, error)
+	UpdateAssetComponent(ctx context.Context, id int64, in AssetComponent) error
+	DeleteAssetComponent(ctx context.Context, id int64) error
+	ReplaceAssetComponents(ctx context.Context, assetID int64, items []AssetComponent) error
+	BulkResolveByRFID(ctx context.Context, orgID int64, rfids []string) ([]ScanResult, error)
 }
 
 func Open(ctx context.Context, dbURL, sqlitePath string) (Store, error) {

@@ -1,5 +1,18 @@
 import { z } from "zod";
 
+// R2: physical components. A single-piece asset has either no rows or one
+// row whose RFID matches the parent asset_number.
+export const assetComponentSchema = z.object({
+  id: z.number().optional(),
+  componentName: z.string().min(1, "ระบุชื่อชิ้น"),
+  rfidNum: z.string().optional(),
+  serialNo: z.string().optional(),
+  positionNo: z.coerce.number().min(1).default(1),
+  note: z.string().optional(),
+});
+
+export type AssetComponent = z.infer<typeof assetComponentSchema>;
+
 // --- Schema สำหรับ Form (Create/Update) ---
 export const assetFormSchema = z.object({
   assetName: z.string().min(1, "กรุณากรอกชื่อสินทรัพย์"),
@@ -43,6 +56,10 @@ export const assetFormSchema = z.object({
 
   // ⭐ เพิ่ม Field ใหม่ (Lifetime/Usage Age)
   availableAge: z.coerce.number().optional(),
+
+  // R2: optional list of physical components. If left empty for a single-
+  // piece asset, the backend auto-creates a default component from rfidNum.
+  components: z.array(assetComponentSchema).optional(),
 });
 
 export type AssetFormValues = z.infer<typeof assetFormSchema>;
@@ -99,4 +116,8 @@ export interface AssetData {
   availableAge?: number | null;
   statusIsLocked?: boolean;
   depreciation_value?: number | null;
+
+  // R2
+  components?: AssetComponent[];
+  componentCount?: number;
 }

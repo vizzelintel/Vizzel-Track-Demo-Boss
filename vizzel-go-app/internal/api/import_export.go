@@ -13,8 +13,11 @@ import (
 )
 
 func (h *Handler) AssetTemplate(w http.ResponseWriter, r *http.Request) {
-	csv := "เลขครุภัณฑ์,รหัส Elaas,ชื่อ,RFID,หมวด,ชนิด,อาคาร,ห้อง,เจ้าของ,มูลค่า,สถานะ,คิดค่าเสื่อม\n" +
-		"001-43-0001,101-630926-00001,ตัวอย่างครุภัณฑ์,RFID-00001,ครุภัณฑ์คอมพิวเตอร์,Laptop,อาคาร A,ห้อง 101,สมชาย,50000,ใช้งาน,ใช่\n"
+	csv := "เลขครุภัณฑ์,รหัส Elaas,ชื่อ,RFID,หมวด,ชนิด,อาคาร,ห้อง,เจ้าของ,มูลค่า,สถานะ,คิดค่าเสื่อม,ชื่อชิ้นย่อย,ลำดับชิ้น\n" +
+		"001-43-0001,101-630926-00001,ตัวอย่างครุภัณฑ์,RFID-00001,ครุภัณฑ์คอมพิวเตอร์,Laptop,อาคาร A,ห้อง 101,สมชาย,50000,ใช้งาน,ใช่,,\n" +
+		"410-00-2222,101-630926-00012,ชุดคอมพิวเตอร์,RFID-410-00-2222-CPU,ครุภัณฑ์คอมพิวเตอร์,Desktop,อาคาร A,ห้อง 101,สมหญิง,40000,ใช้งาน,ใช่,เครื่องคอมพิวเตอร์,1\n" +
+		"410-00-2222,101-630926-00012,ชุดคอมพิวเตอร์,RFID-410-00-2222-MON,,,,,,,,,จอภาพ,2\n" +
+		"410-00-2222,101-630926-00012,ชุดคอมพิวเตอร์,RFID-410-00-2222-UPS,,,,,,,,,UPS,3\n"
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	w.Header().Set("Content-Disposition", "attachment; filename=asset-template.csv")
 	_, _ = w.Write([]byte(csv))
@@ -59,6 +62,26 @@ func parseImportBool(raw string, defaultVal bool) bool {
 	return defaultVal
 }
 
+// importedRow is the intermediate per-CSV-row shape used by AssetImport so we
+// can collapse repeating asset_number rows into a single asset with N
+// components.
+type importedRow struct {
+	AssetNumber   string
+	ElaasCode     string
+	AssetName     string
+	RFIDNum       string
+	CategoryName  string
+	ClassName     string
+	BuildingName  string
+	RoomName      string
+	OwnerName     string
+	AssetValue    int64
+	StatusName    string
+	IsDeprec      bool
+	ComponentName string
+	PositionNo    int
+}
+
 func (h *Handler) AssetImport(w http.ResponseWriter, r *http.Request) {
 	claims, ok := claimsFromContext(r.Context())
 	if !ok {
@@ -74,8 +97,6 @@ func (h *Handler) AssetImport(w http.ResponseWriter, r *http.Request) {
 	reader := csv.NewReader(file)
 	reader.FieldsPerRecord = -1
 	header, _ := reader.Read()
-	// Detect whether the new template (with explicit รหัส Elaas column at index 1)
-	// is being used. Old template: index 1 is the asset name.
 	hasElaasColumn := false
 	if len(header) > 1 {
 		h := strings.ToLower(strings.TrimSpace(header[1]))
@@ -83,7 +104,9 @@ func (h *Handler) AssetImport(w http.ResponseWriter, r *http.Request) {
 			hasElaasColumn = true
 		}
 	}
-	imported, failed := 0, 0
+
+	rows := make([]importedRow, 0, 32)
+	failed := 0
 	for {
 		row, err := reader.Read()
 		if err == io.EOF {
@@ -93,36 +116,98 @@ func (h *Handler) AssetImport(w http.ResponseWriter, r *http.Request) {
 			failed++
 			continue
 		}
-		// First column may contain a combined "elaas (XXX YY ZZZZ)" cell; split it.
 		elaas, assetNum := parseElaasCombined(strings.TrimSpace(row[0]))
 		var (
-			nameIdx, rfidIdx, catIdx, classIdx, bldIdx, roomIdx, ownerIdx, valIdx, statusIdx, depIdx int
+			nameIdx, rfidIdx, catIdx, classIdx, bldIdx, roomIdx, ownerIdx, valIdx, statusIdx, depIdx, compNameIdx, posIdx int
 		)
 		if hasElaasColumn {
-			// Explicit elaas column overrides whatever we parsed out of column 0
-			// (the combined cell is still split so the user gets sensible behaviour
-			// either way).
 			if v := strings.TrimSpace(pick(row, 1)); v != "" {
 				elaas = v
 			}
-			nameIdx, rfidIdx, catIdx, classIdx, bldIdx, roomIdx, ownerIdx, valIdx, statusIdx, depIdx = 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
+			nameIdx, rfidIdx, catIdx, classIdx, bldIdx, roomIdx, ownerIdx, valIdx, statusIdx, depIdx, compNameIdx, posIdx = 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
 		} else {
-			nameIdx, rfidIdx, catIdx, classIdx, bldIdx, roomIdx, ownerIdx, valIdx, statusIdx, depIdx = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+			nameIdx, rfidIdx, catIdx, classIdx, bldIdx, roomIdx, ownerIdx, valIdx, statusIdx, depIdx, compNameIdx, posIdx = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
 		}
 		val, _ := strconv.ParseInt(strings.TrimSpace(pick(row, valIdx)), 10, 64)
+		pos, _ := strconv.Atoi(strings.TrimSpace(pick(row, posIdx)))
+		rows = append(rows, importedRow{
+			AssetNumber:   assetNum,
+			ElaasCode:     elaas,
+			AssetName:     pick(row, nameIdx),
+			RFIDNum:       pick(row, rfidIdx),
+			CategoryName:  pick(row, catIdx),
+			ClassName:     pick(row, classIdx),
+			BuildingName:  pick(row, bldIdx),
+			RoomName:      pick(row, roomIdx),
+			OwnerName:     pick(row, ownerIdx),
+			AssetValue:    val,
+			StatusName:    pickDefault(row, statusIdx, "ใช้งาน"),
+			IsDeprec:      parseImportBool(pick(row, depIdx), true),
+			ComponentName: pick(row, compNameIdx),
+			PositionNo:    pos,
+		})
+	}
+
+	// Group rows by (asset_number|elaas_code). First row in a group seeds the
+	// asset; subsequent rows become extra components.
+	type group struct {
+		key    string
+		header importedRow
+		comps  []store.AssetComponentInput
+	}
+	order := make([]string, 0, len(rows))
+	groups := map[string]*group{}
+	for _, row := range rows {
+		key := strings.TrimSpace(row.AssetNumber) + "|" + strings.TrimSpace(row.ElaasCode)
+		g, exists := groups[key]
+		if !exists {
+			g = &group{key: key, header: row}
+			groups[key] = g
+			order = append(order, key)
+		}
+		comp := store.AssetComponentInput{
+			ComponentName: strings.TrimSpace(row.ComponentName),
+			RFIDNum:       strings.TrimSpace(row.RFIDNum),
+			PositionNo:    row.PositionNo,
+		}
+		if comp.ComponentName == "" {
+			// Single-piece rows use the parent asset_name as the component label.
+			comp.ComponentName = strings.TrimSpace(row.AssetName)
+		}
+		if comp.ComponentName != "" || comp.RFIDNum != "" {
+			g.comps = append(g.comps, comp)
+		}
+	}
+
+	imported := 0
+	for _, key := range order {
+		g := groups[key]
+		hd := g.header
+		// If only one row in the group AND no explicit component name, treat
+		// the asset as single-piece so the existing auto-create path runs.
+		var (
+			compList []store.AssetComponentInput
+			hasComp  bool
+		)
+		if len(g.comps) > 1 || (len(g.comps) == 1 && strings.TrimSpace(hd.ComponentName) != "") {
+			compList = g.comps
+			hasComp = true
+		}
 		in := store.AssetInput{
-			AssetNumber:     assetNum,
-			ElaasCode:       elaas,
-			AssetName:       pick(row, nameIdx),
-			RFIDNum:         pick(row, rfidIdx),
-			CategoryName:    pick(row, catIdx),
-			ClassName:       pick(row, classIdx),
-			BuildingName:    pick(row, bldIdx),
-			RoomName:        pick(row, roomIdx),
-			OwnerName:       pick(row, ownerIdx),
-			AssetValue:      val,
-			AssetStatusName: pickDefault(row, statusIdx, "ใช้งาน"),
-			IsDepreciation:  parseImportBool(pick(row, depIdx), true),
+			AssetNumber:      hd.AssetNumber,
+			ElaasCode:        hd.ElaasCode,
+			AssetName:        hd.AssetName,
+			RFIDNum:          hd.RFIDNum,
+			CategoryName:     hd.CategoryName,
+			ClassName:        hd.ClassName,
+			BuildingName:     hd.BuildingName,
+			RoomName:         hd.RoomName,
+			OwnerName:        hd.OwnerName,
+			AssetValue:       hd.AssetValue,
+			AssetStatusName:  hd.StatusName,
+			IsDepreciation:   hd.IsDeprec,
+			Components:       compList,
+			HasComponentList: hasComp,
 		}
 		if _, err := h.store.CreateAsset(r.Context(), claims.OrganizationID, in); err != nil {
 			failed++
@@ -132,18 +217,18 @@ func (h *Handler) AssetImport(w http.ResponseWriter, r *http.Request) {
 	}
 	dryRun := r.FormValue("dryRun") == "true"
 	resp := map[string]any{
-		"imported":       imported,
-		"failed":         failed,
-		"created":        imported,
-		"updated":        0,
-		"errors":         []any{},
-		"successes":      []any{},
-		"newCategories":  []any{},
-		"newTypes":       []any{},
-		"newClasses":     []any{},
-		"newBuildings":   []any{},
-		"newRooms":       []any{},
-		"newStatuses":    []any{},
+		"imported":      imported,
+		"failed":        failed,
+		"created":       imported,
+		"updated":       0,
+		"errors":        []any{},
+		"successes":     []any{},
+		"newCategories": []any{},
+		"newTypes":      []any{},
+		"newClasses":    []any{},
+		"newBuildings":  []any{},
+		"newRooms":      []any{},
+		"newStatuses":   []any{},
 	}
 	if dryRun {
 		resp["imported"] = 0

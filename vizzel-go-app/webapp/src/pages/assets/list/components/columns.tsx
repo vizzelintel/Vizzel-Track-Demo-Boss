@@ -115,6 +115,7 @@ export const columns: ColumnDef<AssetData>[] = [
     cell: ({ row }) => {
       const assetNumber = row.getValue("assetNumber") as string;
       const elaas = (row.original as AssetData).elaasCode;
+      const compCount = (row.original as AssetData).componentCount ?? 0;
       return (
         <div
           className="flex max-w-[180px] flex-col"
@@ -127,6 +128,15 @@ export const columns: ColumnDef<AssetData>[] = [
             <span className="text-muted-foreground truncate text-[11px] leading-tight">
               {elaas}
             </span>
+          )}
+          {compCount > 1 && (
+            <Badge
+              variant="secondary"
+              className="mt-1 w-fit px-1.5 py-0 text-[10px] font-normal"
+              title={`${compCount} ชิ้น (RFID แยกรายชิ้น)`}
+            >
+              📦 {compCount} ชิ้น
+            </Badge>
           )}
         </div>
       );

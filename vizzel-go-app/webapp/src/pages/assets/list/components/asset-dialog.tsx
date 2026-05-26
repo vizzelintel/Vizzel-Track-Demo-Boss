@@ -82,6 +82,12 @@ import {
   resolveLovSelectValue,
 } from "@/lib/asset-form-resolve";
 import { autoFormatAssetNumber } from "@/lib/asset-code-format";
+import {
+  getAssetComponents,
+  replaceAssetComponents,
+} from "@/lib/asset-components";
+import type { AssetComponent } from "../types";
+import { Trash2, Plus } from "lucide-react";
 
 interface AssetDialogProps {
   open: boolean;
@@ -144,6 +150,9 @@ export function AssetDialog({
 
   // Removed isRoomsLoading since it's instant now
   const [activeTab, setActiveTab] = useState("general");
+
+  // R2: physical components for the asset (set-of-pieces support).
+  const [components, setComponents] = useState<AssetComponent[]>([]);
 
   const orgID = user?.organizationRelation?.organizationID ?? null;
   const { hasMenu } = useOrganizationMenus(orgID);
@@ -527,7 +536,14 @@ export function AssetDialog({
           setRooms(filtered);
         }
 
-        // Images Preview
+        try {
+          const comps = await getAssetComponents(Number(initialData.id));
+          setComponents(comps);
+        } catch (err) {
+          console.error("Failed to load components", err);
+          setComponents([]);
+        }
+
         if (asset.images && asset.images.length > 0) {
           const existingImages = asset.images.map((img: any) => {
             // Handle both string and object formats temporarily
@@ -578,6 +594,7 @@ export function AssetDialog({
       setTypes([]);
       setClasses([]);
       setRooms([]);
+      setComponents([]);
     }
   }, [
     initialData,
@@ -634,6 +651,22 @@ export function AssetDialog({
         formData.append("assetStatusID", values.assetStatusID);
       if (values.userID) formData.append("userID", values.userID);
 
+      // R2: send the editable component list as a JSON string. Only attach
+      // when the user actually added rows so single-piece assets keep the
+      // auto-create-from-RFID behaviour on the server.
+      const cleanComponents = components
+        .map((c, i) => ({
+          componentName: (c.componentName || "").trim(),
+          rfidNum: (c.rfidNum || "").trim(),
+          serialNo: (c.serialNo || "").trim(),
+          positionNo: c.positionNo || i + 1,
+          note: (c.note || "").trim(),
+        }))
+        .filter((c) => c.componentName || c.rfidNum);
+      if (cleanComponents.length > 0) {
+        formData.append("components", JSON.stringify(cleanComponents));
+      }
+
       // Handle New Images
       const newFiles = previewImages.filter((p) => p.file).map((p) => p.file);
       if (newFiles.length > 0) {
@@ -679,7 +712,17 @@ export function AssetDialog({
         });
       }
 
-      // Create Depreciation Log
+      if (savedAssetID && cleanComponents.length > 0) {
+        try {
+          await replaceAssetComponents(
+            Number(savedAssetID),
+            cleanComponents as unknown as AssetComponent[],
+          );
+        } catch (compErr) {
+          console.error("Failed to replace components", compErr);
+        }
+      }
+
       if (savedAssetID) {
         try {
           const { createDepreciationLog } = await import("@/lib/assets");
@@ -757,8 +800,11 @@ export function AssetDialog({
           className="flex min-h-0 flex-1 flex-col"
         >
           <div className="bg-background border-b px-6 py-4">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="general" data-testid={TEST_IDS.ASSET_FORM.TAB_GENERAL}>ข้อมูลทั่วไป</TabsTrigger>
+              <TabsTrigger value="components">
+                {`ส่วนประกอบ${components.length > 0 ? ` (${components.length})` : ""}`}
+              </TabsTrigger>
               <TabsTrigger value="gallery" disabled={!initialData} data-testid={TEST_IDS.ASSET_FORM.TAB_GALLERY}>
                 คลังรูปภาพ
               </TabsTrigger>
@@ -1732,6 +1778,161 @@ export function AssetDialog({
 
               </form>
             </Form>
+          </TabsContent>
+
+          <TabsContent
+            value="components"
+            className="m-0 flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
+          >
+            <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>ส่วนประกอบของทรัพย์สิน (RFID ต่อชิ้น)</CardTitle>
+                  <CardDescription>
+                    {components.length === 0
+                      ? "ทรัพย์สินชิ้นเดียว ไม่ต้องเพิ่ม (ระบบจะใช้ RFID หลัก). กดเพิ่มชิ้นเพื่อตั้งค่าหลายชิ้น เช่น ชุดคอมพิวเตอร์ / ชุดเต้น"
+                      : `${components.length} ชิ้น`}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {components.length > 0 && (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="text-muted-foreground text-xs">
+                          <tr className="border-b">
+                            <th className="w-12 text-left p-2">ลำดับ</th>
+                            <th className="text-left p-2">ชื่อชิ้น</th>
+                            <th className="text-left p-2">RFID</th>
+                            <th className="text-left p-2">S/N</th>
+                            <th className="w-16" />
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {components.map((c, idx) => (
+                            <tr key={idx} className="border-b align-top">
+                              <td className="p-2">
+                                <Input
+                                  type="number"
+                                  value={c.positionNo ?? idx + 1}
+                                  onChange={(e) => {
+                                    const v = Number(e.target.value || idx + 1);
+                                    setComponents((arr) =>
+                                      arr.map((x, i) =>
+                                        i === idx ? { ...x, positionNo: v } : x,
+                                      ),
+                                    );
+                                  }}
+                                  className="h-9"
+                                />
+                              </td>
+                              <td className="p-2">
+                                <Input
+                                  value={c.componentName}
+                                  placeholder="เช่น CPU / จอภาพ"
+                                  onChange={(e) =>
+                                    setComponents((arr) =>
+                                      arr.map((x, i) =>
+                                        i === idx
+                                          ? { ...x, componentName: e.target.value }
+                                          : x,
+                                      ),
+                                    )
+                                  }
+                                />
+                              </td>
+                              <td className="p-2">
+                                <Input
+                                  value={c.rfidNum || ""}
+                                  placeholder="RFID-..."
+                                  onChange={(e) =>
+                                    setComponents((arr) =>
+                                      arr.map((x, i) =>
+                                        i === idx
+                                          ? { ...x, rfidNum: e.target.value }
+                                          : x,
+                                      ),
+                                    )
+                                  }
+                                />
+                              </td>
+                              <td className="p-2">
+                                <Input
+                                  value={c.serialNo || ""}
+                                  placeholder="S/N"
+                                  onChange={(e) =>
+                                    setComponents((arr) =>
+                                      arr.map((x, i) =>
+                                        i === idx
+                                          ? { ...x, serialNo: e.target.value }
+                                          : x,
+                                      ),
+                                    )
+                                  }
+                                />
+                              </td>
+                              <td className="p-2 text-right">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    setComponents((arr) =>
+                                      arr.filter((_, i) => i !== idx),
+                                    )
+                                  }
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() =>
+                        setComponents((arr) => [
+                          ...arr,
+                          {
+                            componentName: "",
+                            rfidNum: "",
+                            serialNo: "",
+                            positionNo: arr.length + 1,
+                            note: "",
+                          },
+                        ])
+                      }
+                    >
+                      <Plus className="mr-1 h-4 w-4" /> เพิ่มชิ้น
+                    </Button>
+                    {initialData && (
+                      <Button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await replaceAssetComponents(
+                              Number(initialData.id),
+                              components,
+                            );
+                            toast.success("บันทึกส่วนประกอบสำเร็จ");
+                          } catch (err: any) {
+                            toast.error(
+                              `บันทึกไม่สำเร็จ: ${err?.message || err}`,
+                            );
+                          }
+                        }}
+                      >
+                        บันทึกส่วนประกอบ
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           {initialData && (

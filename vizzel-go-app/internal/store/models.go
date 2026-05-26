@@ -48,6 +48,33 @@ type Asset struct {
 	AssetValue      int64     `json:"asset_value"`
 	Status          string    `json:"status"`
 	CreatedAt       time.Time `json:"created_at"`
+	ComponentCount  int       `json:"component_count"`
+}
+
+// AssetComponent is one physical piece of an asset. Each component has its
+// own RFID (so multi-piece assets like a computer set can be tracked
+// individually) and belongs to a single parent asset.
+type AssetComponent struct {
+	ID            int64  `json:"id"`
+	AssetID       int64  `json:"asset_id"`
+	ComponentName string `json:"component_name"`
+	RFIDNum       string `json:"rfid_num"`
+	SerialNo      string `json:"serial_no"`
+	PositionNo    int    `json:"position_no"`
+	Note          string `json:"note"`
+	CurrentStatus string `json:"current_status"`
+}
+
+// ScanResult reports whether a single scanned RFID matched an existing
+// component, plus the parent asset metadata so the UI can group results.
+type ScanResult struct {
+	RFID          string `json:"rfid"`
+	Matched       bool   `json:"matched"`
+	AssetID       int64  `json:"asset_id,omitempty"`
+	AssetNumber   string `json:"asset_number,omitempty"`
+	AssetName     string `json:"asset_name,omitempty"`
+	ComponentID   int64  `json:"component_id,omitempty"`
+	ComponentName string `json:"component_name,omitempty"`
 }
 
 type UserRecord struct {

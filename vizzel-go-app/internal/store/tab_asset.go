@@ -29,7 +29,8 @@ SELECT a.id, a.organization_id, a.asset_number, COALESCE(a.elaas_code, ''),
        COALESCE(o.owner_name, ''), COALESCE(st.status, 'ใช้งาน'),
        COALESCE(a.asset_value, 0),
        CASE WHEN a.deleted_at IS NULL THEN 'active' ELSE 'deleted' END,
-       a.created_at
+       a.created_at,
+       COALESCE(comp.cnt, 0)
 FROM tab_asset a
 LEFT JOIN tab_asset_class cl ON cl.id = a.asset_class_id AND cl.deleted_at IS NULL
 LEFT JOIN tab_asset_type ty ON ty.id = cl.asset_type_id AND ty.deleted_at IS NULL
@@ -43,6 +44,10 @@ LEFT JOIN LATERAL (
     SELECT owner_name, user_id FROM tab_asset_owner
     WHERE asset_id = a.id AND deleted_at IS NULL ORDER BY id LIMIT 1
 ) o ON TRUE
+LEFT JOIN LATERAL (
+    SELECT COUNT(*)::int AS cnt FROM tab_asset_component c
+    WHERE c.asset_id = a.id AND c.deleted_at IS NULL
+) comp ON TRUE
 `
 
 func scanAssetTabRow(sc interface {
@@ -56,7 +61,7 @@ func scanAssetTabRow(sc interface {
 		&a.TypeID, &a.AssetStatusID, &a.IsCheck, &a.IsDepreciation, &a.ReceivedDate, &expiry,
 		&a.GetByID, &a.GetFrom, &a.SourceFundID, &a.AvailableAge, &a.AssetDetails,
 		&a.UserID, &a.BuildingName, &a.RoomName, &a.OwnerName, &a.AssetStatusName,
-		&a.AssetValue, &a.Status, &a.CreatedAt,
+		&a.AssetValue, &a.Status, &a.CreatedAt, &a.ComponentCount,
 	)
 	if err != nil {
 		return Asset{}, err
@@ -152,6 +157,7 @@ func ParseAssetInputJSON(body []byte) (AssetInput, error) {
 		s := getStr("is_depreciation", "isDepreciation")
 		isDep = !(s == "false" || s == "0")
 	}
+	components, hasComp := parseComponentsRaw(raw["components"])
 	return AssetInput{
 		AssetNumber:     getStr("asset_number", "assetNumber"),
 		ElaasCode:       getStr("elaas_code", "elaasCode"),
@@ -176,9 +182,74 @@ func ParseAssetInputJSON(body []byte) (AssetInput, error) {
 		AvailableAge:    getInt("available_age", "availableAge"),
 		ReceivedDate:    getStr("received_date", "receivedDate"),
 		ExpiryDate:      getStr("expiry_date", "expiryDate"),
-		IsCheck:         getBool("is_check", "isCheck"),
-		IsDepreciation:  isDep,
+		IsCheck:          getBool("is_check", "isCheck"),
+		IsDepreciation:   isDep,
+		Components:       components,
+		HasComponentList: hasComp,
 	}, nil
+}
+
+// parseComponentsRaw decodes the `components` JSON value (an array of
+// objects) into AssetComponentInput. It tolerates camelCase and snake_case
+// keys and reports whether the caller sent the field at all.
+func parseComponentsRaw(raw json.RawMessage) ([]AssetComponentInput, bool) {
+	if len(raw) == 0 {
+		return nil, false
+	}
+	// Allow a JSON-encoded string (multipart forms send it that way).
+	var asStr string
+	if json.Unmarshal(raw, &asStr) == nil && asStr != "" {
+		raw = json.RawMessage(asStr)
+	}
+	var arr []map[string]any
+	if err := json.Unmarshal(raw, &arr); err != nil {
+		return nil, false
+	}
+	out := make([]AssetComponentInput, 0, len(arr))
+	for _, m := range arr {
+		ci := componentFromMap(m)
+		if ci.ComponentName == "" && ci.RFIDNum == "" {
+			continue
+		}
+		out = append(out, ci)
+	}
+	return out, true
+}
+
+func componentFromMap(m map[string]any) AssetComponentInput {
+	getStr := func(keys ...string) string {
+		for _, k := range keys {
+			if v, ok := m[k]; ok && v != nil {
+				if s, ok := v.(string); ok {
+					return s
+				}
+			}
+		}
+		return ""
+	}
+	getInt := func(keys ...string) int64 {
+		for _, k := range keys {
+			if v, ok := m[k]; ok && v != nil {
+				switch t := v.(type) {
+				case float64:
+					return int64(t)
+				case string:
+					var n int64
+					_, _ = fmt.Sscanf(t, "%d", &n)
+					return n
+				}
+			}
+		}
+		return 0
+	}
+	return AssetComponentInput{
+		ID:            getInt("id"),
+		ComponentName: getStr("component_name", "componentName", "name"),
+		RFIDNum:       getStr("rfid_num", "rfidNum", "rfid"),
+		SerialNo:      getStr("serial_no", "serialNo"),
+		PositionNo:    int(getInt("position_no", "positionNo", "pos")),
+		Note:          getStr("note"),
+	}
 }
 
 func (s *postgresStore) listAssetsTab(ctx context.Context, orgID int64, page, pageSize int, f AssetFilter) (*AssetListResult, error) {
@@ -293,7 +364,54 @@ func (s *postgresStore) createAssetTab(ctx context.Context, orgID int64, in Asse
 			id, nullInt64(in.UserID), nullStr(in.OwnerName),
 		)
 	}
+	s.syncComponentsFromInput(ctx, id, in)
 	return s.getAssetTab(ctx, orgID, id)
+}
+
+// syncComponentsFromInput is shared by create/update to keep the
+// tab_asset_component rows in sync with the supplied input:
+//   - if the caller sent an explicit components list, replace atomically
+//   - otherwise, when the asset has an RFID and no components yet, create one
+//     default component so single-piece assets keep working seamlessly.
+func (s *postgresStore) syncComponentsFromInput(ctx context.Context, assetID int64, in AssetInput) {
+	if in.HasComponentList {
+		items := make([]AssetComponent, 0, len(in.Components))
+		for i, c := range in.Components {
+			pos := c.PositionNo
+			if pos <= 0 {
+				pos = i + 1
+			}
+			items = append(items, AssetComponent{
+				ComponentName: c.ComponentName,
+				RFIDNum:       c.RFIDNum,
+				SerialNo:      c.SerialNo,
+				PositionNo:    pos,
+				Note:          c.Note,
+			})
+		}
+		_ = s.ReplaceAssetComponents(ctx, assetID, items)
+		return
+	}
+	if in.RFIDNum == "" {
+		return
+	}
+	var existing int
+	_ = s.pool.QueryRow(ctx,
+		`SELECT COUNT(*)::int FROM tab_asset_component WHERE asset_id = $1 AND deleted_at IS NULL`,
+		assetID,
+	).Scan(&existing)
+	if existing > 0 {
+		return
+	}
+	name := in.AssetName
+	if name == "" {
+		name = "ชิ้นหลัก"
+	}
+	_, _ = s.pool.Exec(ctx,
+		`INSERT INTO tab_asset_component (asset_id, component_name, rfid_num, position_no, created_by)
+		 VALUES ($1,$2,$3,1,1)`,
+		assetID, name, in.RFIDNum,
+	)
 }
 
 func (s *postgresStore) getAssetTab(ctx context.Context, orgID, id int64) (*Asset, error) {
@@ -339,6 +457,7 @@ func (s *postgresStore) updateAssetTab(ctx context.Context, orgID, id int64, in 
 			id, nullInt64(in.UserID), nullStr(in.OwnerName),
 		)
 	}
+	s.syncComponentsFromInput(ctx, id, in)
 	return nil
 }
 
