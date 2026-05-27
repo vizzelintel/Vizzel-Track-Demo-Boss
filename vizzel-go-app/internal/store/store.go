@@ -62,6 +62,7 @@ type Store interface {
 	UpdateWithdrawalStatus(ctx context.Context, orgID, id int64, status string) error
 	CreateUser(ctx context.Context, orgID int64, email, hash, display string, roleID int64) (*User, error)
 	CreateTabOrgUser(ctx context.Context, orgID int64, in TabOrgUserInput) error
+	SyncTabImportSequences(ctx context.Context) error
 	FindOrCreateTabInstitute(ctx context.Context, orgID int64, name string, autoCreate bool) (int64, error)
 	FindOrCreateTabDept(ctx context.Context, orgID int64, name string, instituteID int64, autoCreate bool) (int64, error)
 	FindOrCreateTabSection(ctx context.Context, deptID int64, name string, autoCreate bool) (int64, error)

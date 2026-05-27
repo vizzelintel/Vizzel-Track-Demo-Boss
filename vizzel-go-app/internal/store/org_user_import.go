@@ -30,6 +30,36 @@ var (
 	ErrImportUserOrgMembership = errors.New("user is already a member of this organization")
 )
 
+// SyncTabImportSequences realigns tab_* serial sequences after idempotent
+// migration inserts that may leave sequences behind MAX(id).
+func (s *postgresStore) SyncTabImportSequences(ctx context.Context) error {
+	if !s.tabUsersEnabled(ctx) {
+		return nil
+	}
+	tables := []string{
+		"tab_user",
+		"tab_user_organization_role",
+		"tab_institute",
+		"tab_dept",
+		"tab_section",
+		"tab_position",
+	}
+	for _, table := range tables {
+		q := fmt.Sprintf(
+			`SELECT setval(pg_get_serial_sequence('%s', 'id'), COALESCE((SELECT MAX(id) FROM %s), 1), TRUE)`,
+			table, table,
+		)
+		if _, err := s.pool.Exec(ctx, q); err != nil {
+			return fmt.Errorf("sync sequence %s: %w", table, err)
+		}
+	}
+	return nil
+}
+
+func (s *sqliteStore) SyncTabImportSequences(ctx context.Context) error {
+	return nil
+}
+
 func (s *postgresStore) tabUsersEnabled(ctx context.Context) bool {
 	if !s.tabStructureEnabled(ctx) {
 		return false

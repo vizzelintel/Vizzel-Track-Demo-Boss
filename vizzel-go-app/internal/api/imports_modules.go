@@ -438,6 +438,10 @@ func (h *Handler) UserImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cols := mapUserHeader(header)
+	if err := h.store.SyncTabImportSequences(r.Context()); err != nil {
+		writeError(w, http.StatusInternalServerError, "เตรียมระบบนำเข้าไม่สำเร็จ: "+err.Error())
+		return
+	}
 	var (
 		imported, failed, skipped int
 		errs                      []map[string]any
