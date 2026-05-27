@@ -3,8 +3,10 @@ package api
 import (
 	"encoding/csv"
 	"io"
+	"log"
 	"net/http"
 	"regexp"
+	"runtime/debug"
 	"strconv"
 	"strings"
 
@@ -83,14 +85,37 @@ type importedRow struct {
 }
 
 func (h *Handler) AssetImport(w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			log.Printf("asset import panic: %v\n%s", rec, debug.Stack())
+			writeError(w, http.StatusInternalServerError, "asset import crashed")
+		}
+	}()
+	// Cap the multipart body so a giant upload (or a binary file sent to the
+	// CSV endpoint) can't park the worker until the Fly proxy 60s idle-timeout
+	// which surfaces to the client as a 502.
+	r.Body = http.MaxBytesReader(w, r.Body, maxImportBodyBytes)
+
+	// The frontend POSTs ELAAS xlsx dry-runs to /asset/import with
+	// `format=elaas`. Detect that here and delegate to the dedicated xlsx
+	// parser so we never try to parse a binary .xlsx blob as CSV (which
+	// previously chewed CPU + spawned thousands of garbage INSERTs and
+	// triggered a 49s timeout / Fly 502).
+	if strings.EqualFold(strings.TrimSpace(r.FormValue("format")), "elaas") {
+		h.ImportElaasXLSX(w, r)
+		return
+	}
+
 	claims, ok := claimsFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
-	file, _, err := r.FormFile("file")
+	dryRun := r.FormValue("dryRun") == "true" || r.FormValue("dryRun") == "1"
+	file, fileHeader, err := r.FormFile("file")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "file required")
+		log.Printf("asset import: FormFile failed: %v", err)
+		writeError(w, http.StatusBadRequest, "file required: "+err.Error())
 		return
 	}
 	defer file.Close()
@@ -180,48 +205,64 @@ func (h *Handler) AssetImport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	imported := 0
-	for _, key := range order {
-		g := groups[key]
-		hd := g.header
-		// If only one row in the group AND no explicit component name, treat
-		// the asset as single-piece so the existing auto-create path runs.
-		var (
-			compList []store.AssetComponentInput
-			hasComp  bool
-		)
-		if len(g.comps) > 1 || (len(g.comps) == 1 && strings.TrimSpace(hd.ComponentName) != "") {
-			compList = g.comps
-			hasComp = true
-		}
-		in := store.AssetInput{
-			AssetNumber:      hd.AssetNumber,
-			ElaasCode:        hd.ElaasCode,
-			AssetName:        hd.AssetName,
-			RFIDNum:          hd.RFIDNum,
-			CategoryName:     hd.CategoryName,
-			ClassName:        hd.ClassName,
-			BuildingName:     hd.BuildingName,
-			RoomName:         hd.RoomName,
-			OwnerName:        hd.OwnerName,
-			AssetValue:       hd.AssetValue,
-			AssetStatusName:  hd.StatusName,
-			IsDepreciation:   hd.IsDeprec,
-			Components:       compList,
-			HasComponentList: hasComp,
-		}
-		if _, err := h.store.CreateAsset(r.Context(), claims.OrganizationID, in); err != nil {
-			failed++
-		} else {
+	errorsOut := []map[string]any{}
+	// On a dry-run we already know how many rows we would attempt; skip the
+	// DB writes entirely so the request returns fast and demo data stays put.
+	if !dryRun {
+		for _, key := range order {
+			g := groups[key]
+			hd := g.header
+			// If only one row in the group AND no explicit component name, treat
+			// the asset as single-piece so the existing auto-create path runs.
+			var (
+				compList []store.AssetComponentInput
+				hasComp  bool
+			)
+			if len(g.comps) > 1 || (len(g.comps) == 1 && strings.TrimSpace(hd.ComponentName) != "") {
+				compList = g.comps
+				hasComp = true
+			}
+			in := store.AssetInput{
+				AssetNumber:      hd.AssetNumber,
+				ElaasCode:        hd.ElaasCode,
+				AssetName:        hd.AssetName,
+				RFIDNum:          hd.RFIDNum,
+				CategoryName:     hd.CategoryName,
+				ClassName:        hd.ClassName,
+				BuildingName:     hd.BuildingName,
+				RoomName:         hd.RoomName,
+				OwnerName:        hd.OwnerName,
+				AssetValue:       hd.AssetValue,
+				AssetStatusName:  hd.StatusName,
+				IsDepreciation:   hd.IsDeprec,
+				Components:       compList,
+				HasComponentList: hasComp,
+			}
+			if _, err := h.store.CreateAsset(r.Context(), claims.OrganizationID, in); err != nil {
+				failed++
+				if len(errorsOut) < 25 {
+					errorsOut = append(errorsOut, map[string]any{
+						"line":  imported + failed,
+						"error": err.Error(),
+					})
+				}
+				continue
+			}
 			imported++
 		}
 	}
-	dryRun := r.FormValue("dryRun") == "true"
+	filename := ""
+	if fileHeader != nil {
+		filename = fileHeader.Filename
+	}
+	log.Printf("asset import done: file=%q rows=%d imported=%d failed=%d dry_run=%v",
+		filename, len(rows), imported, failed, dryRun)
 	resp := map[string]any{
 		"imported":      imported,
 		"failed":        failed,
 		"created":       imported,
 		"updated":       0,
-		"errors":        []any{},
+		"errors":        errorsOut,
 		"successes":     []any{},
 		"newCategories": []any{},
 		"newTypes":      []any{},
@@ -229,6 +270,8 @@ func (h *Handler) AssetImport(w http.ResponseWriter, r *http.Request) {
 		"newBuildings":  []any{},
 		"newRooms":      []any{},
 		"newStatuses":   []any{},
+		"data_rows":     len(rows),
+		"dry_run":       dryRun,
 	}
 	if dryRun {
 		resp["imported"] = 0

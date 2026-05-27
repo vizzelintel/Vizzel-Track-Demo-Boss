@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"regexp"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -14,79 +16,112 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
+// maxImportBodyBytes caps multipart uploads so a malformed/oversized request
+// can't park a Fly machine for the full proxy timeout. 32MB is comfortably
+// larger than any real ELAAS export but small enough to fail fast.
+const maxImportBodyBytes = 32 << 20
+
 // ImportElaasXLSX accepts the official ELAAS asset register .xlsx export
 // (รายงานทะเบียนข้อมูลสินทรัพย์) and creates assets in the user's
 // organization. It is engineered against the อบต. ละหาร sample export but is
 // resilient to small layout shifts because it locates the data-region by
 // searching for the "ลำดับ" header row.
 func (h *Handler) ImportElaasXLSX(w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			log.Printf("elaas import panic: %v\n%s", rec, debug.Stack())
+			writeError(w, http.StatusInternalServerError, "elaas import crashed")
+		}
+	}()
 	claims, ok := claimsFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
+	// Cap the request body so an oversized upload fails immediately instead
+	// of holding the worker open until the Fly proxy idle-timeout (60s) and
+	// returning a 502 to the client.
+	r.Body = http.MaxBytesReader(w, r.Body, maxImportBodyBytes)
 	file, header, err := r.FormFile("file")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "file required")
+		log.Printf("elaas import: FormFile failed: %v", err)
+		writeError(w, http.StatusBadRequest, "file required: "+err.Error())
 		return
 	}
 	defer file.Close()
 	buf, err := io.ReadAll(file)
 	if err != nil {
+		log.Printf("elaas import: read body failed (size cap %d): %v", maxImportBodyBytes, err)
 		writeError(w, http.StatusBadRequest, "read failed: "+err.Error())
 		return
 	}
 	dryRun := r.FormValue("dryRun") == "true" || r.FormValue("dryRun") == "1"
 	report, err := h.parseElaasXLSX(bytes.NewReader(buf))
 	if err != nil {
+		log.Printf("elaas import: parseElaasXLSX failed for %q (%d bytes): %v", header.Filename, len(buf), err)
 		writeError(w, http.StatusBadRequest, "elaas parse failed: "+err.Error())
 		return
 	}
 
 	imported, failed, skipped := 0, 0, 0
+	errors := []map[string]any{}
 	if !dryRun {
-		for _, row := range report.Rows {
+		for i, row := range report.Rows {
 			in := store.AssetInput{
-				AssetNumber:     row.AssetNumber,
-				ElaasCode:       row.ElaasCode,
-				AssetName:       row.AssetName,
-				CategoryName:    row.Category,
-				ClassName:       row.Class,
-				BuildingName:    "",
-				RoomName:        "",
-				OwnerName:       row.OwnerName,
-				AssetValue:      int64(row.PurchaseValue),
-				AssetStatusName: defaultIfEmpty(row.Status, "ใช้งาน"),
-				IsDepreciation:  true,
+				AssetNumber:      row.AssetNumber,
+				ElaasCode:        row.ElaasCode,
+				AssetName:        row.AssetName,
+				CategoryName:     row.Category,
+				ClassName:        row.Class,
+				BuildingName:     "",
+				RoomName:         "",
+				OwnerName:        row.OwnerName,
+				AssetValue:       int64(row.PurchaseValue),
+				AssetStatusName:  defaultIfEmpty(row.Status, "ใช้งาน"),
+				IsDepreciation:   true,
 				HasComponentList: false,
-				AssetDetails:    row.Details,
+				AssetDetails:     row.Details,
 			}
 			if _, err := h.store.CreateAsset(r.Context(), claims.OrganizationID, in); err != nil {
 				failed++
+				log.Printf("elaas import: row %d (%s) create failed: %v", i+1, row.AssetNumber, err)
+				if len(errors) < 25 {
+					errors = append(errors, map[string]any{
+						"line":  i + 1,
+						"error": err.Error(),
+					})
+				}
 				continue
 			}
 			imported++
 		}
 	}
+	log.Printf("elaas import done: file=%q rows=%d imported=%d failed=%d dry_run=%v",
+		header.Filename, len(report.Rows), imported, failed, dryRun)
 	resp := map[string]any{
-		"filename":       header.Filename,
-		"sheet":          report.SheetName,
-		"header_row":     report.HeaderRowIdx,
-		"data_rows":      len(report.Rows),
-		"imported":       imported,
-		"failed":         failed,
-		"skipped":        skipped,
-		"dry_run":        dryRun,
-		"created":        imported,
-		"updated":        0,
-		"newCategories":  []any{},
-		"newTypes":       []any{},
-		"newClasses":     []any{},
-		"sample":         elaasSample(report.Rows, 5),
+		"filename":      header.Filename,
+		"sheet":         report.SheetName,
+		"header_row":    report.HeaderRowIdx,
+		"data_rows":     len(report.Rows),
+		"imported":      imported,
+		"failed":        failed,
+		"skipped":       skipped,
+		"dry_run":       dryRun,
+		"created":       imported,
+		"updated":       0,
+		"errors":        errors,
+		"successes":     []any{},
+		"newCategories": report.CategorySet(),
+		"newTypes":      []any{},
+		"newClasses":    report.ClassSet(),
+		"newBuildings":  []any{},
+		"newRooms":      []any{},
+		"newStatuses":   []any{},
+		"sample":        elaasSample(report.Rows, 5),
 		"summary": map[string]any{
-			"total_value":  report.TotalValue,
-			"categories":   report.CategorySet(),
-			"classes":      report.ClassSet(),
+			"total_value": report.TotalValue,
+			"categories":  report.CategorySet(),
+			"classes":     report.ClassSet(),
 		},
 	}
 	writeJSON(w, http.StatusOK, resp)
