@@ -1,8 +1,10 @@
 import * as React from "react";
 import useSWR from "swr";
+import { ClipboardCheck } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { fetcher } from "@/lib/api";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/layout/PageHeader";
 import {
   AuditKpiSummary,
   AuditStatusChart,
@@ -75,57 +77,53 @@ export function AuditReportPage() {
   }, [sortedSelected, dashRes]);
 
   return (
-    <div className="flex flex-1 flex-col">
-      <div className="@container/main flex flex-1 flex-col gap-2">
-        <div className="flex flex-col gap-3 py-4 md:gap-4 md:py-6">
-          <div className="px-4 lg:px-6">
-            <div className="flex flex-col gap-1 pb-2">
-              <h1 className="text-2xl font-bold tracking-tight">
-                รายงานการตรวจนับ
-              </h1>
-              <p className="text-muted-foreground">
-                ภาพรวมการตรวจนับสินทรัพย์ขององค์กร พร้อมตัวกรองตามงานตรวจนับ
-              </p>
-            </div>
-            <Card>
-              <CardContent className="flex flex-col gap-2 py-4">
-                <div className="flex flex-col gap-1">
-                  <span className="text-sm font-medium">กรองข้อมูลตาม Job</span>
-                  <span className="text-muted-foreground text-xs">
-                    {selectedJobIds.length === 0
-                      ? "ไม่ได้เลือก - ระบบใช้ Job ล่าสุดเป็นค่าเริ่มต้น"
-                      : `จะกรอง KPI, กราฟ และตารางทั้งหมดตาม Job ที่เลือก ${selectedJobIds.length} รายการ`}
-                  </span>
-                </div>
-                <AuditJobFilter
-                  jobs={jobs}
-                  selected={selectedJobIds}
-                  onChange={setSelectedJobIds}
-                />
-              </CardContent>
-            </Card>
-          </div>
-
-          <AuditKpiSummary data={summary} />
-
-          <div className="px-4 lg:px-6">
-            <AuditStatusChart data={status} />
-          </div>
-
-          <AuditDetailTables
-            organizationID={orgId}
-            summary={summary}
-            initialTableData={tableData}
-            jobIds={effectiveJobIds}
-          />
-
-          {isLoading && !dashRes && (
-            <div className="text-muted-foreground px-4 text-sm lg:px-6">
-              กำลังโหลดข้อมูลรายงานการตรวจนับ...
-            </div>
-          )}
-        </div>
+    <div className="flex flex-1 flex-col gap-6">
+      <div className="px-4 lg:px-6">
+        <PageHeader
+          title="รายงานการตรวจนับ"
+          subtitle="ภาพรวมการตรวจนับสินทรัพย์ขององค์กร พร้อมตัวกรองตามงานตรวจนับ"
+          icon={<ClipboardCheck className="h-5 w-5" />}
+        />
       </div>
+
+      <div className="px-4 lg:px-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">กรองข้อมูลตามจ็อบตรวจนับ</CardTitle>
+            <p className="text-muted-foreground text-xs">
+              {selectedJobIds.length === 0
+                ? "ไม่ได้เลือก — ระบบใช้ Job ล่าสุดเป็นค่าเริ่มต้น"
+                : `จะกรอง KPI, กราฟ และตารางทั้งหมดตาม Job ที่เลือก ${selectedJobIds.length} รายการ`}
+            </p>
+          </CardHeader>
+          <CardContent>
+            <AuditJobFilter
+              jobs={jobs}
+              selected={selectedJobIds}
+              onChange={setSelectedJobIds}
+            />
+          </CardContent>
+        </Card>
+      </div>
+
+      <AuditKpiSummary data={summary} />
+
+      <div className="px-4 lg:px-6">
+        <AuditStatusChart data={status} />
+      </div>
+
+      <AuditDetailTables
+        organizationID={orgId}
+        summary={summary}
+        initialTableData={tableData}
+        jobIds={effectiveJobIds}
+      />
+
+      {isLoading && !dashRes && (
+        <div className="text-muted-foreground px-4 text-sm lg:px-6">
+          กำลังโหลดข้อมูลรายงานการตรวจนับ...
+        </div>
+      )}
     </div>
   );
 }

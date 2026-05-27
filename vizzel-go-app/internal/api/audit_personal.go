@@ -178,27 +178,37 @@ func filterAuditAssets(assets []store.Asset, bucket string, search string) []sto
 }
 
 func auditAssetRow(a store.Asset) map[string]any {
-	location := strings.TrimSpace(strings.Join([]string{a.BuildingName, a.RoomName}, " / "))
-	if location == "/" {
-		location = ""
-	}
 	var lastChecked any
 	if !a.ReceivedDate.IsZero() {
-		lastChecked = a.ReceivedDate.Format("2006-01-02")
+		lastChecked = a.ReceivedDate.Format(time.RFC3339)
+	}
+	owners := []map[string]any{}
+	if owner := strings.TrimSpace(a.OwnerName); owner != "" {
+		parts := strings.Fields(owner)
+		name := parts[0]
+		surname := ""
+		if len(parts) > 1 {
+			surname = strings.Join(parts[1:], " ")
+		}
+		owners = append(owners, map[string]any{
+			"id":      a.UserID,
+			"name":    name,
+			"surname": surname,
+		})
 	}
 	return map[string]any{
-		"id":            a.ID,
-		"assetNumber":   a.AssetNumber,
-		"assetName":     a.AssetName,
-		"category":      a.CategoryName,
-		"building":      a.BuildingName,
-		"room":          a.RoomName,
-		"location":      location,
-		"owner":         a.OwnerName,
-		"status":        a.AssetStatusName,
-		"value":         a.AssetValue,
-		"lastChecked":   lastChecked,
-		"isCheck":       a.IsCheck,
+		"id":              a.ID,
+		"assetNumber":     a.AssetNumber,
+		"assetName":       a.AssetName,
+		"category":        a.CategoryName,
+		"buildingName":    a.BuildingName,
+		"roomName":        a.RoomName,
+		"roomNumber":      a.RoomName,
+		"users":           owners,
+		"status":          a.AssetStatusName,
+		"value":           a.AssetValue,
+		"lastCheckedDate": lastChecked,
+		"isCheck":         a.IsCheck,
 	}
 }
 
@@ -515,5 +525,3 @@ func (h *Handler) PersonalReportAssets(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// auditTimeFormat is exported for tests that may want to parse the response.
-var auditTimeFormat = time.RFC3339

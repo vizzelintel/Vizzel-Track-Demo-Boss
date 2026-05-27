@@ -133,8 +133,11 @@ func (h *Handler) DisposalImport(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) DisposalTemplate(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
-	w.Header().Set("Content-Disposition", `attachment; filename="disposal_import_template.csv"`)
-	_, _ = w.Write([]byte("assetNumber\nDEMO-00001\n"))
+	w.Header().Set("Content-Disposition", `attachment; filename="sales_import_template.csv"`)
+	// Match the canonical sales_import_template (1).csv: a single
+	// `assetNumber` column plus a handful of sample IDs.
+	body := "\ufeffassetNumber\nAST-0001\nAST-0002\nAST-0003\n"
+	_, _ = w.Write([]byte(body))
 }
 
 func (h *Handler) ServeDisposalDoc(w http.ResponseWriter, r *http.Request) {

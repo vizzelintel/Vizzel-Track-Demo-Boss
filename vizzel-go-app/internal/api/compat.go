@@ -85,6 +85,7 @@ func MountProductionRoutes(r chi.Router, h *Handler) {
 	MountCompatExtended(r, h)
 	MountAuditReportRoutes(r, h)
 	MountPersonalReportRoutes(r, h)
+	MountImportTemplateRoutes(r, h)
 }
 
 func orgIDFromQueryOrClaims(r *http.Request) (int64, bool) {
