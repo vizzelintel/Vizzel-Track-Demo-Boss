@@ -61,6 +61,11 @@ type Store interface {
 	SeedModules(ctx context.Context, orgID int64) error
 	UpdateWithdrawalStatus(ctx context.Context, orgID, id int64, status string) error
 	CreateUser(ctx context.Context, orgID int64, email, hash, display string, roleID int64) (*User, error)
+	CreateTabOrgUser(ctx context.Context, orgID int64, in TabOrgUserInput) error
+	FindOrCreateTabInstitute(ctx context.Context, orgID int64, name string, autoCreate bool) (int64, error)
+	FindOrCreateTabDept(ctx context.Context, orgID int64, name string, instituteID int64, autoCreate bool) (int64, error)
+	FindOrCreateTabSection(ctx context.Context, deptID int64, name string, autoCreate bool) (int64, error)
+	FindOrCreateTabPosition(ctx context.Context, orgID int64, name string, autoCreate bool) (int64, error)
 	UpdateUserPassword(ctx context.Context, userID int64, hash string) error
 	IssueRefreshToken(ctx context.Context, userID int64) (string, error)
 	ValidateRefreshToken(ctx context.Context, token string) (*RefreshClaims, error)

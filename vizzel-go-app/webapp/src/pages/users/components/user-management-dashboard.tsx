@@ -806,15 +806,20 @@ export default function UserManagementDashboard({
 
         try {
           const res = await importUserToOrganization(organizationID, chunkFile);
-          // Handle response (API returns { data: { success, fail, errors } })
-          const payload = res?.data || res;
-          const s = payload?.success ?? chunk.length;
-          const f = payload?.fail ?? 0;
+          const payload = (res as { data?: Record<string, unknown> })?.data ?? res;
+          const row = payload as Record<string, number | undefined>;
+          const s = Number(row.success ?? row.imported ?? 0);
+          const f = Number(row.fail ?? row.failed ?? 0);
+          const sk = Number(row.skipped ?? 0);
           successCount += s;
           failCount += f;
-          
-          if (payload?.errors && payload.errors.length > 0) {
-            console.warn("Import chunk errors:", payload.errors);
+          if (sk > 0) {
+            console.info(`Import chunk skipped ${sk} rows`);
+          }
+
+          const chunkErrors = (payload as { errors?: unknown[] })?.errors;
+          if (chunkErrors && chunkErrors.length > 0) {
+            console.warn("Import chunk errors:", chunkErrors);
           }
         } catch (e) {
           console.error("Chunk fail", e);

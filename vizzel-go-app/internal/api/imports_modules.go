@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -405,8 +406,9 @@ func (h *Handler) UserTemplate(w http.ResponseWriter, r *http.Request) {
 }
 
 // UserImport creates user accounts from user_import_template (1).csv. Each
-// row becomes a CreateUser call; password column may be left blank to default
-// to "demo1234".
+// row becomes a tab_user + tab_user_organization_role record so imported users
+// appear in the organization user list. Password column may be left blank to
+// default to "demo1234".
 func (h *Handler) UserImport(w http.ResponseWriter, r *http.Request) {
 	claims, ok := claimsFromContext(r.Context())
 	if !ok {
@@ -427,6 +429,7 @@ func (h *Handler) UserImport(w http.ResponseWriter, r *http.Request) {
 	if v, _ := strconv.ParseInt(r.FormValue("organizationID"), 10, 64); v > 0 {
 		orgID = v
 	}
+	autoCreateStructure := r.FormValue("autoCreateStructure") != "false"
 	reader := csv.NewReader(file)
 	reader.FieldsPerRecord = -1
 	header, headerErr := reader.Read()
@@ -458,6 +461,7 @@ func (h *Handler) UserImport(w http.ResponseWriter, r *http.Request) {
 			skipped++
 			continue
 		}
+		username := strings.TrimSpace(pickCol(row, cols, "username"))
 		password := strings.TrimSpace(pickCol(row, cols, "password"))
 		if password == "" {
 			password = "demo1234"
@@ -472,17 +476,82 @@ func (h *Handler) UserImport(w http.ResponseWriter, r *http.Request) {
 		}
 		first := strings.TrimSpace(pickCol(row, cols, "name"))
 		last := strings.TrimSpace(pickCol(row, cols, "surname"))
-		display := strings.TrimSpace(first + " " + last)
-		if display == "" {
-			display = strings.TrimSpace(pickCol(row, cols, "username"))
+		if username == "" && first != "" {
+			if last != "" {
+				username = first + "." + last
+			} else {
+				username = first
+			}
 		}
-		if display == "" {
-			display = email
-		}
-		if _, err := h.store.CreateUser(r.Context(), orgID, email, string(hash), display, store.DemoRoleAdminOrg); err != nil {
+
+		instituteName := strings.TrimSpace(pickCol(row, cols, "institute"))
+		deptName := strings.TrimSpace(pickCol(row, cols, "dept"))
+		sectionName := strings.TrimSpace(pickCol(row, cols, "section"))
+		positionName := strings.TrimSpace(pickCol(row, cols, "position"))
+
+		var instituteID, deptID, sectionID, positionID int64
+		if instituteID, err = h.store.FindOrCreateTabInstitute(r.Context(), orgID, instituteName, autoCreateStructure); err != nil {
 			failed++
 			if len(errs) < 25 {
 				errs = append(errs, map[string]any{"line": line, "error": err.Error()})
+			}
+			continue
+		}
+		if deptID, err = h.store.FindOrCreateTabDept(r.Context(), orgID, deptName, instituteID, autoCreateStructure); err != nil {
+			failed++
+			if len(errs) < 25 {
+				errs = append(errs, map[string]any{"line": line, "error": err.Error()})
+			}
+			continue
+		}
+		if sectionID, err = h.store.FindOrCreateTabSection(r.Context(), deptID, sectionName, autoCreateStructure); err != nil {
+			failed++
+			if len(errs) < 25 {
+				errs = append(errs, map[string]any{"line": line, "error": err.Error()})
+			}
+			continue
+		}
+		if positionID, err = h.store.FindOrCreateTabPosition(r.Context(), orgID, positionName, autoCreateStructure); err != nil {
+			failed++
+			if len(errs) < 25 {
+				errs = append(errs, map[string]any{"line": line, "error": err.Error()})
+			}
+			continue
+		}
+
+		in := store.TabOrgUserInput{
+			Username:     username,
+			Email:        email,
+			PasswordHash: string(hash),
+			Prefix:       strings.TrimSpace(pickCol(row, cols, "prefix")),
+			Name:         first,
+			Surname:      last,
+			RoleID:       4,
+		}
+		if instituteID > 0 {
+			in.InstituteID = &instituteID
+		}
+		if deptID > 0 {
+			in.DeptID = &deptID
+		}
+		if sectionID > 0 {
+			in.SectionID = &sectionID
+		}
+		if positionID > 0 {
+			in.PositionID = &positionID
+		}
+
+		if err := h.store.CreateTabOrgUser(r.Context(), orgID, in); err != nil {
+			failed++
+			if len(errs) < 25 {
+				msg := err.Error()
+				switch {
+				case errors.Is(err, store.ErrImportUserEmailTaken):
+					msg = fmt.Sprintf(`Email "%s" is already used by another user in the system.`, email)
+				case errors.Is(err, store.ErrImportUserOrgMembership):
+					msg = fmt.Sprintf(`User "%s" is already a member of this organization.`, email)
+				}
+				errs = append(errs, map[string]any{"line": line, "error": msg})
 			}
 			continue
 		}
@@ -492,6 +561,8 @@ func (h *Handler) UserImport(w http.ResponseWriter, r *http.Request) {
 		"imported":  imported,
 		"failed":    failed,
 		"skipped":   skipped,
+		"success":   imported,
+		"fail":      failed,
 		"errors":    errs,
 		"successes": []any{},
 		"data_rows": imported + failed + skipped,
