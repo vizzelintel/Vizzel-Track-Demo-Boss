@@ -48,34 +48,34 @@ export function KpiCard({
       onClick={onClick}
       data-testid={testId}
       className={cn(
-        "group relative overflow-hidden rounded-2xl border border-slate-100/60 bg-white p-5 text-left shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] transition-all duration-300 hover:shadow-[0_8px_30px_-4px_rgba(0,0,0,0.08)]",
+        "group relative overflow-hidden rounded-xl border border-slate-100/60 bg-white p-4 text-left shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] transition-all duration-300 hover:shadow-[0_8px_30px_-4px_rgba(0,0,0,0.08)]",
         onClick && "cursor-pointer active:scale-[0.99]",
         className,
       )}
     >
-      <div className="absolute top-0 right-0 p-4 opacity-10 transition-opacity group-hover:opacity-20">
-        <Icon className={cn("-mt-4 -mr-4 h-24 w-24", t.watermark)} />
+      <div className="absolute top-0 right-0 p-3 opacity-10 transition-opacity group-hover:opacity-20">
+        <Icon className={cn("-mt-3 -mr-3 h-16 w-16", t.watermark)} />
       </div>
-      <div className="relative z-10 flex items-center gap-4">
+      <div className="relative z-10 flex items-center gap-3">
         <div
           className={cn(
-            "flex h-14 w-14 items-center justify-center rounded-2xl shadow-inner transition-colors",
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-inner transition-colors",
             t.bg,
             t.text,
             t.hoverBg,
           )}
         >
-          <Icon className="h-7 w-7" />
+          <Icon className="h-5 w-5" />
         </div>
         <div className="min-w-0">
-          <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">
+          <p className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
             {label}
           </p>
-          <div className="mt-1 flex items-baseline gap-2">
-            <p className="text-3xl font-extrabold text-slate-900">{value}</p>
+          <div className="mt-0.5 flex items-baseline gap-2">
+            <p className="text-2xl font-bold text-slate-900">{value}</p>
           </div>
           {hint && (
-            <p className="text-xs font-medium text-slate-400">{hint}</p>
+            <p className="text-[11px] font-medium text-slate-400">{hint}</p>
           )}
         </div>
       </div>
@@ -99,7 +99,7 @@ export function KpiCardGrid({
         ? "md:grid-cols-2 lg:grid-cols-3"
         : "md:grid-cols-2 lg:grid-cols-4";
   return (
-    <div className={cn("grid grid-cols-1 gap-4", colCls, className)}>
+    <div className={cn("grid grid-cols-1 gap-3", colCls, className)}>
       {children}
     </div>
   );

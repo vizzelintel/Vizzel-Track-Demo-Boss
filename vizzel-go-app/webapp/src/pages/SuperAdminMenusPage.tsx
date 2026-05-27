@@ -87,23 +87,23 @@ export function SuperAdminMenusPage() {
         <TabsList className="grid h-auto w-full grid-cols-2 gap-1 bg-muted/50 p-1 sm:w-auto">
           <TabsTrigger
             value="org"
-            className="gap-2 px-4 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+            className="gap-2 px-3 py-1.5 text-xs data-[state=active]:bg-white data-[state=active]:shadow-sm"
             data-testid="sa-menus-tab-org"
           >
-            <Building className="h-4 w-4" />
+            <Building className="h-3.5 w-3.5" />
             กำหนดเมนูให้องค์กร
           </TabsTrigger>
           <TabsTrigger
             value="global"
-            className="gap-2 px-4 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+            className="gap-2 px-3 py-1.5 text-xs data-[state=active]:bg-white data-[state=active]:shadow-sm"
             data-testid="sa-menus-tab-global"
           >
-            <LayoutGrid className="h-4 w-4" />
+            <LayoutGrid className="h-3.5 w-3.5" />
             เมนูระบบ Global
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="org" className="mt-4">
+        <TabsContent value="org" className="mt-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-3">
               <div>

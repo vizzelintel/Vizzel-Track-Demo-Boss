@@ -113,7 +113,7 @@ export function AssetsStructurePage() {
         })}
       />
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as TabId)} className="gap-4">
+      <Tabs value={tab} onValueChange={(v) => setTab(v as TabId)} className="gap-3">
         <TabsList className="grid h-auto w-full grid-cols-3 gap-1 bg-muted/50 p-1">
           {tabs.map((t) => {
             const TabIcon = t.icon;
@@ -122,13 +122,13 @@ export function AssetsStructurePage() {
               <TabsTrigger
                 key={t.id}
                 value={t.id}
-                className="w-full gap-2 px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                className="w-full gap-2 px-3 py-1.5 text-xs data-[state=active]:bg-white data-[state=active]:shadow-sm"
                 data-testid={`assets-structure-tab-${t.id}`}
               >
-                <TabIcon className="h-4 w-4" />
+                <TabIcon className="h-3.5 w-3.5" />
                 <span>{t.label}</span>
                 {typeof c === "number" && (
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 data-[state=active]:bg-primary/10">
+                  <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 data-[state=active]:bg-primary/10">
                     {c}
                   </span>
                 )}

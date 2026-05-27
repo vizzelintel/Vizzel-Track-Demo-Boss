@@ -254,7 +254,7 @@ export function WarrantyReportsPage() {
             <TabsList className="grid h-auto w-full grid-cols-2 gap-1 bg-muted/50 p-1 sm:grid-cols-4">
               <TabsTrigger
                 value="lt90"
-                className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                className="gap-2 px-3 py-1.5 text-xs data-[state=active]:bg-white data-[state=active]:shadow-sm"
                 data-testid="warranty-pill-lt90"
               >
                 น้อยกว่า 90 วัน
@@ -264,7 +264,7 @@ export function WarrantyReportsPage() {
               </TabsTrigger>
               <TabsTrigger
                 value="lt60"
-                className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                className="gap-2 px-3 py-1.5 text-xs data-[state=active]:bg-white data-[state=active]:shadow-sm"
                 data-testid="warranty-pill-lt60"
               >
                 น้อยกว่า 60 วัน
@@ -274,7 +274,7 @@ export function WarrantyReportsPage() {
               </TabsTrigger>
               <TabsTrigger
                 value="lt30"
-                className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                className="gap-2 px-3 py-1.5 text-xs data-[state=active]:bg-white data-[state=active]:shadow-sm"
                 data-testid="warranty-pill-lt30"
               >
                 น้อยกว่า 30 วัน
@@ -284,7 +284,7 @@ export function WarrantyReportsPage() {
               </TabsTrigger>
               <TabsTrigger
                 value="expired"
-                className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                className="gap-2 px-3 py-1.5 text-xs data-[state=active]:bg-white data-[state=active]:shadow-sm"
                 data-testid="warranty-pill-expired"
               >
                 หมดประกันแล้ว

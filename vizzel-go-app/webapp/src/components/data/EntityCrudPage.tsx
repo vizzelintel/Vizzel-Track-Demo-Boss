@@ -219,14 +219,14 @@ export function EntityCrudPage({
   return (
     <Card>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           {icon && (
-            <div className="bg-primary/10 text-primary flex h-9 w-9 items-center justify-center rounded-lg border">
+            <div className="bg-primary/10 text-primary flex h-8 w-8 items-center justify-center rounded-lg border">
               {icon}
             </div>
           )}
           <div>
-            <CardTitle className="text-lg">{title}</CardTitle>
+            <CardTitle className="text-base">{title}</CardTitle>
             {subtitle && (
               <p className="text-muted-foreground mt-0.5 text-xs">{subtitle}</p>
             )}

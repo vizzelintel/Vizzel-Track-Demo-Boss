@@ -143,7 +143,7 @@ export function OrganizationStructurePage() {
         })}
       />
 
-      <Tabs value={activeTab} onValueChange={onTabChange} className="gap-4">
+      <Tabs value={activeTab} onValueChange={onTabChange} className="gap-3">
         <TabsList className="grid h-auto w-full grid-cols-2 gap-1 bg-muted/50 p-1 sm:grid-cols-4">
           {tabs.map((t) => {
             const Icon = t.icon;
@@ -152,13 +152,13 @@ export function OrganizationStructurePage() {
               <TabsTrigger
                 key={t.id}
                 value={t.id}
-                className="w-full gap-2 px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                className="w-full gap-2 px-3 py-1.5 text-xs data-[state=active]:bg-white data-[state=active]:shadow-sm"
                 data-testid={`org-structure-tab-${t.id}`}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-3.5 w-3.5" />
                 <span>{t.label}</span>
                 {typeof c === "number" && (
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                  <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
                     {c}
                   </span>
                 )}

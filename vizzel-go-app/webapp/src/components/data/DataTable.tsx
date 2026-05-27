@@ -125,7 +125,7 @@ export function DataTable<T extends { id: number }>({
         <thead className="bg-muted/50">
           <tr className="text-left">
             {selectionEnabled && (
-              <th className="w-10 p-3">
+              <th className="w-10 px-3 py-2">
                 <Checkbox
                   checked={
                     allSelected ? true : someSelected ? "indeterminate" : false
@@ -142,7 +142,7 @@ export function DataTable<T extends { id: number }>({
                 <th
                   key={c.key}
                   className={cn(
-                    "p-3 font-medium",
+                    "px-3 py-2 font-medium",
                     c.sortable && "cursor-pointer select-none",
                     c.className,
                   )}
@@ -167,7 +167,7 @@ export function DataTable<T extends { id: number }>({
                 </th>
               );
             })}
-            {hasActions && <th className="w-24 p-3 font-medium" />}
+            {hasActions && <th className="w-24 px-3 py-2 font-medium" />}
           </tr>
         </thead>
         <tbody>
@@ -179,7 +179,7 @@ export function DataTable<T extends { id: number }>({
                   (hasActions ? 1 : 0) +
                   (selectionEnabled ? 1 : 0)
                 }
-                className="text-muted-foreground p-8 text-center"
+                className="text-muted-foreground p-6 text-center"
               >
                 {emptyLabel}
               </td>
@@ -192,7 +192,7 @@ export function DataTable<T extends { id: number }>({
               data-testid={`data-table-row-${row.id}`}
             >
               {selectionEnabled && (
-                <td className="p-3">
+                <td className="px-3 py-2">
                   <Checkbox
                     checked={selectedSet.has(row.id)}
                     onCheckedChange={() => toggleRow(row.id)}
@@ -202,25 +202,25 @@ export function DataTable<T extends { id: number }>({
                 </td>
               )}
               {visibleCols.map((c) => (
-                <td key={c.key} className={cn("p-3", c.className)}>
+                <td key={c.key} className={cn("px-3 py-2", c.className)}>
                   {c.render
                     ? c.render(row)
                     : String((row as Record<string, unknown>)[c.key] ?? "—")}
                 </td>
               ))}
               {hasActions && (
-                <td className="p-3">
+                <td className="px-3 py-2">
                   <div className="flex items-center gap-1">
                     {onEdit && (
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="size-8"
+                        className="size-7"
                         onClick={() => onEdit(row)}
                         aria-label="แก้ไข"
                         data-testid={`data-table-edit-${row.id}`}
                       >
-                        <Pencil className="size-4" />
+                        <Pencil className="size-3.5" />
                       </Button>
                     )}
                     {extraActions?.(row)}

@@ -981,15 +981,15 @@ export default function UserManagementDashboard({
         onConfirm={finalizeImport}
       />
 
-      <div className="space-y-8">
-        <header className="z-10 flex-none px-4 py-6 pb-4 lg:px-8">
+      <div className="space-y-5">
+        <header className="z-10 flex-none px-4 py-4 pb-3 lg:px-8">
           {/* Header Section */}
-          <div className="flex flex-row items-start justify-between gap-4">
+          <div className="flex flex-row items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <h1 className="truncate bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-2xl font-bold tracking-tight text-transparent lg:text-3xl">
+              <h1 className="truncate bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-xl font-bold tracking-tight text-transparent lg:text-2xl">
                 จัดการสมาชิก
               </h1>
-              <p className="text-muted-foreground mt-1 line-clamp-2 text-sm lg:text-base">
+              <p className="text-muted-foreground mt-0.5 line-clamp-2 text-xs lg:text-sm">
                 สิทธิ์การเข้าถึงในองค์กรของคุณ
               </p>
             </div>
@@ -1096,22 +1096,22 @@ export default function UserManagementDashboard({
         </header>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 gap-4 px-4 md:grid-cols-2 lg:grid-cols-4 lg:px-8">
+        <div className="grid grid-cols-1 gap-3 px-4 md:grid-cols-2 lg:grid-cols-4 lg:px-8">
           {/* Total Users Card */}
-          <div className="group relative overflow-hidden rounded-2xl border border-slate-100/50 bg-white p-5 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] transition-all duration-300 hover:shadow-[0_8px_30px_-4px_rgba(0,0,0,0.08)]">
-            <div className="absolute top-0 right-0 p-4 opacity-10 transition-opacity group-hover:opacity-20">
-              <Users className="-mt-4 -mr-4 h-24 w-24 text-blue-600" />
+          <div className="group relative overflow-hidden rounded-xl border border-slate-100/50 bg-white p-4 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] transition-all duration-300 hover:shadow-[0_8px_30px_-4px_rgba(0,0,0,0.08)]">
+            <div className="absolute top-0 right-0 p-3 opacity-10 transition-opacity group-hover:opacity-20">
+              <Users className="-mt-3 -mr-3 h-16 w-16 text-blue-600" />
             </div>
-            <div className="relative z-10 flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 shadow-inner transition-colors group-hover:bg-blue-600 group-hover:text-white">
-                <Users className="h-7 w-7" />
+            <div className="relative z-10 flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 shadow-inner transition-colors group-hover:bg-blue-600 group-hover:text-white">
+                <Users className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">
+                <p className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
                   สมาชิกทั้งหมด
                 </p>
-                <div className="mt-1 flex items-baseline gap-2">
-                  <p className="text-3xl font-extrabold text-slate-900">
+                <div className="mt-0.5 flex items-baseline gap-2">
+                  <p className="text-2xl font-bold text-slate-900">
                     {totalMembers}
                   </p>
                   {userLimit && (
@@ -1128,20 +1128,20 @@ export default function UserManagementDashboard({
           </div>
 
           {/* Officer License Card */}
-          <div className="group relative overflow-hidden rounded-2xl border border-slate-100/50 bg-white p-5 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] transition-all duration-300 hover:shadow-[0_8px_30px_-4px_rgba(0,0,0,0.08)]">
-            <div className="absolute top-0 right-0 p-4 opacity-10 transition-opacity group-hover:opacity-20">
-              <Shield className="-mt-4 -mr-4 h-24 w-24 text-emerald-600" />
+          <div className="group relative overflow-hidden rounded-xl border border-slate-100/50 bg-white p-4 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] transition-all duration-300 hover:shadow-[0_8px_30px_-4px_rgba(0,0,0,0.08)]">
+            <div className="absolute top-0 right-0 p-3 opacity-10 transition-opacity group-hover:opacity-20">
+              <Shield className="-mt-3 -mr-3 h-16 w-16 text-emerald-600" />
             </div>
-            <div className="relative z-10 flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 shadow-inner transition-colors group-hover:bg-emerald-600 group-hover:text-white">
-                <Shield className="h-7 w-7" />
+            <div className="relative z-10 flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 shadow-inner transition-colors group-hover:bg-emerald-600 group-hover:text-white">
+                <Shield className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">
+                <p className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
                   สิทธิ์เจ้าหน้าที่
                 </p>
-                <div className="mt-1 flex items-baseline gap-2">
-                  <p className="text-3xl font-extrabold text-slate-900">
+                <div className="mt-0.5 flex items-baseline gap-2">
+                  <p className="text-2xl font-bold text-slate-900">
                     {officerLimit ? officerLimit.officerCount : 0}
                   </p>
                   {officerLimit && (
@@ -1159,15 +1159,15 @@ export default function UserManagementDashboard({
 
           {/* Pending Requests Card */}
           <div
-            className="group relative cursor-pointer overflow-hidden rounded-2xl border border-slate-100/50 bg-white p-5 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] transition-all duration-300 hover:shadow-[0_8px_30px_-4px_rgba(0,0,0,0.08)] active:scale-95"
+            className="group relative cursor-pointer overflow-hidden rounded-xl border border-slate-100/50 bg-white p-4 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] transition-all duration-300 hover:shadow-[0_8px_30px_-4px_rgba(0,0,0,0.08)] active:scale-95"
             onClick={() => setActiveTab("pending")}
           >
-            <div className="absolute top-0 right-0 p-4 opacity-10 transition-opacity group-hover:opacity-20">
-              <Clock className="-mt-4 -mr-4 h-24 w-24 text-orange-600" />
+            <div className="absolute top-0 right-0 p-3 opacity-10 transition-opacity group-hover:opacity-20">
+              <Clock className="-mt-3 -mr-3 h-16 w-16 text-orange-600" />
             </div>
-            <div className="relative z-10 flex items-center gap-4">
-              <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-50 text-orange-600 shadow-inner transition-colors group-hover:bg-orange-600 group-hover:text-white">
-                <Clock className="h-7 w-7" />
+            <div className="relative z-10 flex items-center gap-3">
+              <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-600 shadow-inner transition-colors group-hover:bg-orange-600 group-hover:text-white">
+                <Clock className="h-5 w-5" />
                 {pendingCount > 0 && (
                   <span className="absolute top-0 right-0 -mt-1 -mr-1 h-3 w-3 animate-ping rounded-full bg-red-500 ring-2 ring-white" />
                 )}
@@ -1176,11 +1176,11 @@ export default function UserManagementDashboard({
                 )}
               </div>
               <div>
-                <p className="text-xs font-bold tracking-wider text-slate-400 uppercase transition-colors group-hover:text-orange-600">
+                <p className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase transition-colors group-hover:text-orange-600">
                   รอดำเนินการ
                 </p>
-                <div className="mt-1 flex items-baseline gap-2">
-                  <p className="text-3xl font-extrabold text-slate-900">
+                <div className="mt-0.5 flex items-baseline gap-2">
+                  <p className="text-2xl font-bold text-slate-900">
                     {pendingCount}
                   </p>
                   {pendingCount > 0 && (
@@ -1194,20 +1194,20 @@ export default function UserManagementDashboard({
           </div>
 
           {/* Active Status Card */}
-          <div className="group relative overflow-hidden rounded-2xl border border-slate-100/50 bg-white p-5 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] transition-all duration-300 hover:shadow-[0_8px_30px_-4px_rgba(0,0,0,0.08)]">
-            <div className="absolute top-0 right-0 p-4 opacity-10 transition-opacity group-hover:opacity-20">
-              <CheckCircle2 className="-mt-4 -mr-4 h-24 w-24 text-purple-600" />
+          <div className="group relative overflow-hidden rounded-xl border border-slate-100/50 bg-white p-4 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] transition-all duration-300 hover:shadow-[0_8px_30px_-4px_rgba(0,0,0,0.08)]">
+            <div className="absolute top-0 right-0 p-3 opacity-10 transition-opacity group-hover:opacity-20">
+              <CheckCircle2 className="-mt-3 -mr-3 h-16 w-16 text-purple-600" />
             </div>
-            <div className="relative z-10 flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-50 text-purple-600 shadow-inner transition-colors group-hover:bg-purple-600 group-hover:text-white">
-                <CheckCircle2 className="h-7 w-7" />
+            <div className="relative z-10 flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-purple-600 shadow-inner transition-colors group-hover:bg-purple-600 group-hover:text-white">
+                <CheckCircle2 className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">
+                <p className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
                   สถานะเปิดใช้งาน
                 </p>
-                <div className="mt-1 flex items-baseline gap-2">
-                  <p className="text-3xl font-extrabold text-slate-900">
+                <div className="mt-0.5 flex items-baseline gap-2">
+                  <p className="text-2xl font-bold text-slate-900">
                     {activeMembersCount}
                   </p>
                 </div>
@@ -1224,17 +1224,17 @@ export default function UserManagementDashboard({
             className="w-full"
           >
             {/* Toolbar */}
-            <div className="mb-6 flex flex-col justify-between gap-4 xl:flex-row xl:items-center">
+            <div className="mb-3 flex flex-col justify-between gap-3 xl:flex-row xl:items-center">
               <TabsList className="bg-muted/50 grid h-auto w-full grid-cols-2 rounded-lg p-1 xl:w-auto">
                 <TabsTrigger
                   value="active"
-                  className="rounded-md px-4 py-2 transition-all data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                  className="rounded-md px-3 py-1.5 text-xs transition-all data-[state=active]:bg-white data-[state=active]:shadow-sm"
                 >
                   สมาชิกทั้งหมด ({totalMembers})
                 </TabsTrigger>
                 <TabsTrigger
                   value="pending"
-                  className="relative rounded-md px-4 py-2 transition-all data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                  className="relative rounded-md px-3 py-1.5 text-xs transition-all data-[state=active]:bg-white data-[state=active]:shadow-sm"
                 >
                   คำขอเข้าร่วม ({pendingCount})
                   {pendingCount > 0 && (
@@ -1324,7 +1324,7 @@ export default function UserManagementDashboard({
             <TabsContent value="active" className="mt-0">
               <div className="overflow-hidden rounded-xl border bg-white/50">
                 {/* Desktop Header */}
-                <div className="bg-muted/30 text-muted-foreground hidden grid-cols-12 gap-4 border-b p-4 text-xs font-semibold tracking-wider uppercase lg:grid">
+                <div className="bg-muted/30 text-muted-foreground hidden grid-cols-12 gap-3 border-b px-4 py-2 text-[11px] font-semibold tracking-wider uppercase lg:grid">
                   <div className="col-span-1 text-center">Active</div>
                   <div className="col-span-4">User Details</div>
                   <div className="col-span-3">Role & Position</div>
@@ -1460,12 +1460,12 @@ export default function UserManagementDashboard({
                         </div>
 
                         {/* 💻 Desktop View: Grid Style */}
-                        <div className="hidden grid-cols-12 items-center gap-4 p-4 lg:grid">
+                        <div className="hidden grid-cols-12 items-center gap-3 px-4 py-2.5 lg:grid">
                           {/* Status Switch */}
                           <div className="col-span-1 flex justify-center">
                             {item.roleID === 1 || item.roleID === 2 ? (
-                              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-50">
-                                <Shield className="h-4 w-4 text-purple-600" />
+                              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-purple-50">
+                                <Shield className="h-3.5 w-3.5 text-purple-600" />
                               </div>
                             ) : (
                               <Switch
@@ -1483,7 +1483,7 @@ export default function UserManagementDashboard({
 
                           {/* User Details */}
                           <div className="col-span-4 flex min-w-0 items-center gap-3">
-                            <Avatar className="h-9 w-9 flex-shrink-0 border shadow-sm">
+                            <Avatar className="h-8 w-8 flex-shrink-0 border shadow-sm">
                               <AvatarImage
                                 src={getImageUrl(item.user.image)}
                                 alt={item.user.username}
@@ -1558,7 +1558,7 @@ export default function UserManagementDashboard({
             {/* Content: Pending Users */}
             <TabsContent value="pending" className="mt-0">
               <div className="overflow-hidden rounded-xl border bg-white/50">
-                <div className="bg-muted/30 text-muted-foreground hidden grid-cols-12 gap-4 border-b p-4 text-xs font-semibold tracking-wider uppercase lg:grid">
+                <div className="bg-muted/30 text-muted-foreground hidden grid-cols-12 gap-3 border-b px-4 py-2 text-[11px] font-semibold tracking-wider uppercase lg:grid">
                   <div className="col-span-5">User Details</div>
                   <div className="col-span-4">Contact</div>
                   <div className="col-span-3 text-right">Actions</div>
@@ -1628,9 +1628,9 @@ export default function UserManagementDashboard({
                         </div>
 
                         {/* Desktop Pending */}
-                        <div className="hidden grid-cols-12 items-center gap-4 p-4 lg:grid">
+                        <div className="hidden grid-cols-12 items-center gap-3 px-4 py-2.5 lg:grid">
                           <div className="col-span-5 flex items-center gap-3">
-                            <Avatar className="h-10 w-10 border shadow-sm">
+                            <Avatar className="h-8 w-8 border shadow-sm">
                               <AvatarImage
                                 src={getImageUrl(item.user.image)}
                                 alt={item.user.username}
@@ -1685,7 +1685,7 @@ export default function UserManagementDashboard({
             </TabsContent>
           </Tabs>
 
-          <div className="mt-8">
+          <div className="mt-5">
             <UserPagination
               page={activeTab === "active" ? activePage : pendingPage}
               totalPages={
