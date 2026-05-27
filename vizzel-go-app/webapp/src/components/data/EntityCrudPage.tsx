@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { apiRequest } from "@/lib/api";
-import { unwrapListRows } from "@/lib/list-response";
+import { unwrapListRows, type ListRowExtra } from "@/lib/list-response";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,32 +31,48 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DataTable, type Column } from "./DataTable";
+import {
+  DataTable,
+  type Column,
+  type SortState,
+} from "./DataTable";
+import { DataTablePagination } from "./DataTablePagination";
+import { TableToolbar, toToolbarColumns } from "./TableToolbar";
 
-export type ListRow = {
-  id: number;
-  title: string;
-  subtitle?: string;
-  status?: string;
-  value?: number;
-};
+export type ListRow = ListRowExtra;
 
 type Props = {
   title: string;
+  /** Optional icon + subtitle shown in the card header */
+  subtitle?: ReactNode;
+  icon?: ReactNode;
   listEndpoint: string;
   entityKind?: string;
   parentField?: { label: string; listEndpoint: string };
   columns?: Column<ListRow>[];
   createLabel?: string;
+  searchPlaceholder?: string;
+  /** Disable pagination / search when the dataset is tiny (default false) */
+  hidePagination?: boolean;
+  /** Hide the search + columns toolbar (default false) */
+  hideToolbar?: boolean;
+  /** Optional slot rendered to the right of the search/columns row */
+  toolbarRight?: ReactNode;
 };
 
 export function EntityCrudPage({
   title,
+  subtitle,
+  icon,
   listEndpoint,
   entityKind,
   parentField,
   columns: customCols,
   createLabel = "เพิ่มรายการ",
+  searchPlaceholder,
+  hidePagination,
+  hideToolbar,
+  toolbarRight,
 }: Props) {
   const [rows, setRows] = useState<ListRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,6 +84,12 @@ export function EntityCrudPage({
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  const [search, setSearch] = useState("");
+  const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
+  const [sort, setSort] = useState<SortState | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -86,19 +108,40 @@ export function EntityCrudPage({
 
   useEffect(() => {
     if (parentField) {
-      apiRequest<unknown>(parentField.listEndpoint).then((r) =>
-        setParents(unwrapListRows(r)),
-      );
+      apiRequest<unknown>(parentField.listEndpoint)
+        .then((r) => setParents(unwrapListRows(r)))
+        .catch(() => setParents([]));
     }
   }, [parentField]);
 
   const cols: Column<ListRow>[] =
     customCols ??
     [
-      { key: "title", label: "ชื่อ" },
+      { key: "title", label: "ชื่อ", sortable: true },
       { key: "subtitle", label: "รายละเอียด" },
       { key: "status", label: "สถานะ" },
     ];
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) => {
+      const haystack = [r.title, r.subtitle, r.status, String(r.id)]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [rows, search]);
+
+  const total = filtered.length;
+  const pageRows = hidePagination
+    ? filtered
+    : filtered.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, pageSize]);
 
   const openCreate = () => {
     setEditId(null);
@@ -136,7 +179,6 @@ export function EntityCrudPage({
     let success = 0;
     let failed = 0;
     try {
-      // Try a bulk endpoint first; gracefully fall back to per-id DELETE on 404/405.
       try {
         await apiRequest(`/api/v1/entities/${entityKind}/bulk-delete`, {
           method: "POST",
@@ -172,10 +214,24 @@ export function EntityCrudPage({
     }
   };
 
+  const placeholder = searchPlaceholder ?? `ค้นหา${title}...`;
+
   return (
     <Card>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
-        <CardTitle className="text-lg">{title}</CardTitle>
+        <div className="flex items-center gap-3">
+          {icon && (
+            <div className="bg-primary/10 text-primary flex h-9 w-9 items-center justify-center rounded-lg border">
+              {icon}
+            </div>
+          )}
+          <div>
+            <CardTitle className="text-lg">{title}</CardTitle>
+            {subtitle && (
+              <p className="text-muted-foreground mt-0.5 text-xs">{subtitle}</p>
+            )}
+          </div>
+        </div>
         <div className="flex items-center gap-2">
           {entityKind && selectedIds.length > 0 && (
             <Button
@@ -190,29 +246,56 @@ export function EntityCrudPage({
             </Button>
           )}
           {entityKind && (
-            <Button size="sm" onClick={openCreate}>
+            <Button size="sm" onClick={openCreate} data-testid="entity-create">
               <Plus className="mr-2 size-4" />
               {createLabel}
             </Button>
           )}
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-3">
+        {!hideToolbar && (
+          <TableToolbar
+            search={search}
+            onSearchChange={setSearch}
+            searchPlaceholder={placeholder}
+            columns={toToolbarColumns(cols)}
+            hiddenColumns={hiddenColumns}
+            onHiddenChange={setHiddenColumns}
+            rightSlot={toolbarRight}
+            testIdPrefix={`entity-${entityKind ?? "list"}`}
+          />
+        )}
         <DataTable
           columns={cols}
-          rows={rows}
+          rows={pageRows}
           loading={loading}
           onEdit={entityKind ? openEdit : undefined}
           selectable={Boolean(entityKind)}
           selectedIds={selectedIds}
           onSelectionChange={setSelectedIds}
+          hiddenColumns={hiddenColumns}
+          sort={sort}
+          onSortChange={setSort}
         />
+        {!hidePagination && total > pageSize && (
+          <DataTablePagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            testIdPrefix={`entity-${entityKind ?? "list"}-pagination`}
+          />
+        )}
       </CardContent>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{editId ? "แก้ไข" : "เพิ่ม"} {title}</DialogTitle>
+            <DialogTitle>
+              {editId ? "แก้ไข" : "เพิ่ม"} {title}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
@@ -226,7 +309,10 @@ export function EntityCrudPage({
             {parentField && !editId && (
               <div className="space-y-2">
                 <Label>{parentField.label}</Label>
-                <Select value={parentId || undefined} onValueChange={setParentId}>
+                <Select
+                  value={parentId || undefined}
+                  onValueChange={setParentId}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder={`เลือก${parentField.label}`} />
                   </SelectTrigger>
@@ -242,7 +328,11 @@ export function EntityCrudPage({
             )}
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" type="button" onClick={() => setDialogOpen(false)}>
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => setDialogOpen(false)}
+            >
               ยกเลิก
             </Button>
             <Button type="button" onClick={save}>
