@@ -15,13 +15,8 @@ import (
 
 // MountCompatExtended registers remaining NestJS-compatible routes.
 func MountCompatExtended(r chi.Router, h *Handler) {
-	// Audit
-	r.Get("/audit/jobs/{orgID}", h.AuditJobs)
-	r.Get("/audit/summary/{orgID}", h.AuditSummary)
-	r.Get("/audit/status/{orgID}", h.AuditStatus)
-	r.Get("/audit/assets-checked/{orgID}", h.AuditAssetsChecked)
-	r.Get("/audit/assets-not-checked/{orgID}", h.AuditAssetsNotChecked)
-	r.Get("/audit/assets-not-found/{orgID}", h.AuditAssetsNotFound)
+	// Audit (rich /audit/jobs, /audit/summary, /audit/status and
+	// /audit/assets-* handlers are registered in MountAuditReportRoutes).
 	r.Get("/audit/start-data/{orgID}", h.AuditStartData)
 	r.Get("/audit/ongoing-data/{orgID}", h.AuditOngoingData)
 	r.Get("/audit/history-data/{orgID}", h.AuditHistoryData)

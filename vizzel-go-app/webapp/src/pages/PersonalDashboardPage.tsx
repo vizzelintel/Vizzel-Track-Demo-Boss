@@ -50,10 +50,16 @@ export function PersonalDashboardPage() {
   }
 
   const kpi = {
-    totalAssets: (summary?.ownedAssets as number) ?? 0,
+    totalAssets:
+      (summary?.totalAssets as number) ??
+      (summary?.ownedAssets as number) ??
+      0,
     totalValue: (summary?.totalValue as number) ?? 0,
-    pendingRepairs: 0,
-    activeAssets: (summary?.ownedAssets as number) ?? 0,
+    pendingRepairs: (summary?.pendingRepairs as number) ?? 0,
+    activeAssets:
+      (summary?.activeAssets as number) ??
+      (summary?.ownedAssets as number) ??
+      0,
   };
 
   return (

@@ -57,6 +57,9 @@ const AuditOngoingPage = lazy(() =>
 const AuditJobPage = lazy(() =>
   import("./pages/AuditJobPage").then((m) => ({ default: m.AuditJobPage })),
 );
+const AuditReportPage = lazy(() =>
+  import("./pages/AuditReportPage").then((m) => ({ default: m.AuditReportPage })),
+);
 const WithdrawalApprovalPage = lazy(() =>
   import("./pages/withdrawal/withdrawal-approval/page").then((m) => ({
     default: m.WithdrawalApprovalPage,
@@ -302,15 +305,9 @@ export default function App() {
         <Route
           path="/dashboard/audit"
           element={
-            <EntityCrudPage
-              title="รายงานการตรวจนับ"
-              listEndpoint="/api/v1/audit/history"
-              columns={[
-                { key: "title", label: "งาน" },
-                { key: "status", label: "สถานะ" },
-                { key: "value", label: "%", render: (r) => `${r.value ?? 0}%` },
-              ]}
-            />
+            <Lazy>
+              <AuditReportPage />
+            </Lazy>
           }
         />
         <Route

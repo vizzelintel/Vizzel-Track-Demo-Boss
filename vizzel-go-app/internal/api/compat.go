@@ -41,10 +41,7 @@ func MountProductionRoutes(r chi.Router, h *Handler) {
 	r.Get("/dashboard/value-history/{orgID}", h.CompatDashboardValueHistory)
 	r.Get("/dashboard/depreciation/{orgID}", h.CompatDashboardDepreciation)
 	r.Get("/dashboard/new-assets/{orgID}", h.CompatDashboardNewAssets)
-	r.Get("/dashboard/personal/summary", h.CompatPersonalSummary)
-	r.Get("/dashboard/personal/status", h.CompatPersonalStatus)
-	r.Get("/dashboard/personal/category", h.CompatPersonalCategory)
-	r.Get("/dashboard/personal/assets", h.CompatPersonalAssets)
+	// Personal dashboard rich endpoints registered in MountPersonalReportRoutes.
 	r.Get("/dashboard/personal/initial-data", h.PersonalDashboard)
 	r.Get("/dashboard/repair/initial-data", h.CompatRepairInitialData)
 	r.Get("/dashboard/repair/monthly", h.CompatRepairMonthly)
@@ -63,7 +60,7 @@ func MountProductionRoutes(r chi.Router, h *Handler) {
 	r.Get("/warranty/initial-data/{orgID}", h.WarrantyInitialData)
 	r.Get("/warranty/summary/{orgID}", h.WarrantySummary)
 
-	r.Get("/audit/initial-data/{orgID}", h.AuditInitialData)
+	// /audit/initial-data is registered in MountAuditReportRoutes.
 	r.Get("/audit/job-detail/{jobID}", h.CompatAuditJob)
 	r.Get("/checkJob/list/get/{orgID}", h.ListAuditOngoing)
 
@@ -86,6 +83,8 @@ func MountProductionRoutes(r chi.Router, h *Handler) {
 	r.Post("/notification-channel/test/{id}", h.TestNotificationChannel)
 
 	MountCompatExtended(r, h)
+	MountAuditReportRoutes(r, h)
+	MountPersonalReportRoutes(r, h)
 }
 
 func orgIDFromQueryOrClaims(r *http.Request) (int64, bool) {
