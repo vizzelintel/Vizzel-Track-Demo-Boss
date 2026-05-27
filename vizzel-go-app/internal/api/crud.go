@@ -316,7 +316,7 @@ func (h *Handler) SuperAdminStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListMenuToggles(w http.ResponseWriter, r *http.Request) {
-	orgID, ok := orgIDFromRequest(r)
+	orgID, ok := orgIDFromQueryOrClaims(r)
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return

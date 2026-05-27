@@ -81,6 +81,11 @@ const SuperAdminDashboardPage = lazy(() =>
     default: m.SuperAdminDashboardPage,
   })),
 );
+const SuperAdminOrganizationsPage = lazy(() =>
+  import("./pages/SuperAdminOrganizationsPage").then((m) => ({
+    default: m.SuperAdminOrganizationsPage,
+  })),
+);
 const SuperAdminMenusPage = lazy(() =>
   import("./pages/SuperAdminMenusPage").then((m) => ({ default: m.SuperAdminMenusPage })),
 );
@@ -611,11 +616,9 @@ export default function App() {
         <Route
           path="/super-admin/organizations"
           element={
-            <EntityCrudPage
-              title="จัดการองค์กร"
-              listEndpoint="/api/v1/super-admin/organizations"
-              columns={[{ key: "title", label: "องค์กร" }]}
-            />
+            <Lazy>
+              <SuperAdminOrganizationsPage />
+            </Lazy>
           }
         />
         <Route
