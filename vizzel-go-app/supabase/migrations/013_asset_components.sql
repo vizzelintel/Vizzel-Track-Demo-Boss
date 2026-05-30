@@ -50,9 +50,25 @@ WHERE a.asset_number = '410-00-2222' AND a.organization_id = 1 AND a.deleted_at 
     WHERE x.asset_id = a.id AND x.rfid_num = c.rfid AND x.deleted_at IS NULL
   );
 
+-- Guarded so the seed row is NOT re-inserted on every boot once the
+-- production org has been wiped + reseeded via the ELAAS importer
+-- (migrations 026/027). Without this, every Fly machine restart would
+-- create a fresh "เต้นสนามขนาดใหญ่" demo row alongside the real data.
+DO $$
+BEGIN
+    IF to_regclass('public.tab_migration_marker') IS NOT NULL
+       AND EXISTS (SELECT 1 FROM tab_migration_marker
+                   WHERE key IN ('026_clear_demo_data','027_elaas_partial_wipe')) THEN
+        RAISE NOTICE '013 tab_asset seed skipped (post-wipe marker present)';
+        RETURN;
+    END IF;
+    EXECUTE $insert$
 INSERT INTO tab_asset (asset_number, elaas_code, asset_name, asset_value, organization_id, asset_status_id, is_check, is_depreciation, received_date, created_at, created_by)
 SELECT '510-00-3333', '101-630926-00099', 'เต้นสนามขนาดใหญ่ 6x6 ม.', 28000, 1, 1, false, true, '2023-05-12', NOW(), 1
 WHERE NOT EXISTS (SELECT 1 FROM tab_asset WHERE asset_number = '510-00-3333' AND organization_id = 1);
+$insert$;
+END;
+$$;
 
 INSERT INTO tab_asset_component (asset_id, component_name, rfid_num, position_no, created_at)
 SELECT a.id, c.name, c.rfid, c.pos, NOW()

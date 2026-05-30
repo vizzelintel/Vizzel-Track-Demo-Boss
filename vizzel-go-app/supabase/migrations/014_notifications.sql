@@ -54,6 +54,14 @@ SELECT '410-00-2222', '101-630926-00050', 'ชุดคอมพิวเตอ�
 WHERE NOT EXISTS (
   SELECT 1 FROM tab_asset
   WHERE asset_number = '410-00-2222' AND organization_id = 1
+)
+-- Skip when the org has been wiped + reseeded via the ELAAS importer
+-- (migrations 026/027). The original WHERE NOT EXISTS only checks the
+-- presence of the exact asset_number, so once 027 wipes everything we
+-- would happily re-insert the demo computer set on the very next boot.
+AND NOT EXISTS (
+  SELECT 1 FROM tab_migration_marker
+  WHERE key IN ('026_clear_demo_data','027_elaas_partial_wipe')
 );
 
 INSERT INTO tab_asset_component (asset_id, component_name, rfid_num, position_no, created_at)
