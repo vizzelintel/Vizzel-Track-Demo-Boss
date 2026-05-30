@@ -74,7 +74,27 @@ SELECT setval(pg_get_serial_sequence('tab_asset','id'),
 SELECT setval(pg_get_serial_sequence('tab_asset_address','id'),
               GREATEST((SELECT COALESCE(MAX(id),0) FROM tab_asset_address), 1));
 
--- 6. Seed ~20 realistic government assets (idempotent by asset_number) --------
+-- 6. Seed ~20 realistic government assets — guarded so the seed only runs
+-- on the very first deploy; once the production org is reseeded via the
+-- ELAAS importer (migration 026 onwards) we MUST NOT re-emit the demo rows
+-- on every container boot. Without the marker guard, deploys with multiple
+-- machines could race-insert these demo rows AFTER migration 027 wiped the
+-- table, leaving 22 stray demo assets cluttering the imported register.
+--
+-- The tab_migration_marker table is created by migration 026; if a server
+-- is somehow still on the pre-026 schema we fall back to the legacy
+-- WHERE NOT EXISTS guard so old environments stay seeded.
+DO $$
+BEGIN
+    IF to_regclass('public.tab_migration_marker') IS NOT NULL THEN
+        IF EXISTS (SELECT 1 FROM tab_migration_marker WHERE key = '026_clear_demo_data')
+           OR EXISTS (SELECT 1 FROM tab_migration_marker WHERE key = '027_elaas_partial_wipe') THEN
+            RAISE NOTICE '012 seed skipped: post-wipe marker present';
+            RETURN;
+        END IF;
+    END IF;
+
+    EXECUTE $insert$
 INSERT INTO tab_asset (
     asset_number, elaas_code, asset_name, asset_details, asset_class_id, asset_value,
     organization_id, asset_status_id, is_check, is_depreciation,
@@ -112,6 +132,9 @@ WHERE NOT EXISTS (
       AND t.asset_number = v.asset_number
       AND t.deleted_at IS NULL
 );
+$insert$;
+END;
+$$;
 
 -- 7. Backfill elaas_code on rows that were re-seeded earlier without it -------
 UPDATE tab_asset a SET elaas_code = m.elaas_code
