@@ -140,9 +140,11 @@ func (h *Handler) ImportElaasXLSX(w http.ResponseWriter, r *http.Request) {
 
 // persistElaasRows resolves the taxonomy / status / LOV ids once per distinct
 // value (each ELAAS export only references a handful of unique categories
-// even when it ships ~3k rows) and then calls store.CreateAsset for every
-// row. It returns the totals + the first ≤25 errors for the UI.
+// even when it ships ~3k rows) and then bulk-inserts via the store. The
+// previous per-row CreateAsset loop hit the Fly 60s proxy timeout because
+// each insert is a round-trip to the Supabase pooler.
 func (h *Handler) persistElaasRows(r *http.Request, orgID int64, rows []ElaasRow) (imported, failed int, errs []map[string]any) {
+	ctx := r.Context()
 	statusCache := map[string]int64{}
 	getByCache := map[string]int64{}
 	sourceFundCache := map[string]int64{}
@@ -153,7 +155,7 @@ func (h *Handler) persistElaasRows(r *http.Request, orgID int64, rows []ElaasRow
 		if id, ok := statusCache[canonical]; ok {
 			return canonical, id
 		}
-		id, err := h.store.EnsureTabAssetStatus(r.Context(), canonical)
+		id, err := h.store.EnsureTabAssetStatus(ctx, canonical)
 		if err != nil {
 			log.Printf("elaas import: ensure status %q failed: %v", canonical, err)
 		}
@@ -167,7 +169,7 @@ func (h *Handler) persistElaasRows(r *http.Request, orgID int64, rows []ElaasRow
 		if id, ok := getByCache[name]; ok {
 			return id
 		}
-		id, err := h.store.EnsureLovGetBy(r.Context(), name)
+		id, err := h.store.EnsureLovGetBy(ctx, name)
 		if err != nil {
 			log.Printf("elaas import: ensure get_by %q failed: %v", name, err)
 		}
@@ -181,7 +183,7 @@ func (h *Handler) persistElaasRows(r *http.Request, orgID int64, rows []ElaasRow
 		if id, ok := sourceFundCache[name]; ok {
 			return id
 		}
-		id, err := h.store.EnsureLovSourceFund(r.Context(), name)
+		id, err := h.store.EnsureLovSourceFund(ctx, name)
 		if err != nil {
 			log.Printf("elaas import: ensure source_fund %q failed: %v", name, err)
 		}
@@ -193,7 +195,7 @@ func (h *Handler) persistElaasRows(r *http.Request, orgID int64, rows []ElaasRow
 		if id, ok := classCache[key]; ok {
 			return id
 		}
-		id, err := h.store.EnsureTabTaxonomy(r.Context(), orgID, category, typ, typ)
+		id, err := h.store.EnsureTabTaxonomy(ctx, orgID, category, typ, typ)
 		if err != nil {
 			log.Printf("elaas import: ensure taxonomy (%q / %q) failed: %v", category, typ, err)
 		}
@@ -201,40 +203,40 @@ func (h *Handler) persistElaasRows(r *http.Request, orgID int64, rows []ElaasRow
 		return id
 	}
 
-	for i, row := range rows {
+	bulkRows := make([]store.ElaasAssetRow, 0, len(rows))
+	for _, row := range rows {
 		statusName, statusID := resolveStatus(row.Status)
-		in := store.AssetInput{
+		bulkRows = append(bulkRows, store.ElaasAssetRow{
 			AssetNumber:     row.AssetNumber,
 			ElaasCode:       row.ElaasCode,
-			AssetName:       row.AssetName,
+			AssetName:       defaultIfEmpty(row.AssetName, displayCode(row)),
 			AssetDetails:    row.Details,
-			CategoryName:    row.Category,
-			TypeName:        row.Type,
-			ClassName:       row.Type, // ELAAS has only 2 levels; reuse type as the class leaf so listings join cleanly.
 			ClassID:         resolveClass(row.Category, row.Type),
-			AssetStatusName: statusName,
-			AssetStatusID:   statusID,
 			AssetValue:      int64(row.PurchaseValue),
+			StatusID:        statusID,
+			IsDepreciation:  true,
 			ReceivedDate:    row.AcquireDate,
 			GetByID:         resolveGetBy(row.AcquiredBy),
 			GetFrom:         row.AcquiredFrom,
 			SourceFundID:    resolveFund(row.SourceFund),
 			AvailableAge:    int64(row.UsefulLife),
-			IsDepreciation:  true,
-		}
-		if _, err := h.store.CreateAsset(r.Context(), orgID, in); err != nil {
-			failed++
-			log.Printf("elaas import: row %d (%s) create failed: %v", i+1, displayCode(row), err)
-			if len(errs) < 25 {
-				errs = append(errs, map[string]any{
-					"line":  i + 1,
-					"error": err.Error(),
-				})
-			}
-			continue
-		}
-		imported++
+			CategoryName:    row.Category,
+			TypeName:        row.Type,
+			ClassName:       row.Type,
+			AssetStatusName: statusName,
+		})
 	}
+
+	inserted, err := h.store.BulkInsertElaasAssets(ctx, orgID, bulkRows)
+	if err != nil {
+		log.Printf("elaas import: bulk insert failed after %d rows: %v", inserted, err)
+		failed = len(bulkRows) - inserted
+		errs = append(errs, map[string]any{
+			"line":  inserted + 1,
+			"error": err.Error(),
+		})
+	}
+	imported = inserted
 	return imported, failed, errs
 }
 

@@ -74,6 +74,13 @@ type Store interface {
 	// schema does not track these IDs.
 	EnsureLovGetBy(ctx context.Context, name string) (int64, error)
 	EnsureLovSourceFund(ctx context.Context, name string) (int64, error)
+	// BulkInsertElaasAssets is a chunked INSERT path used by the ELAAS xlsx
+	// importer to avoid the per-row round-trip latency that hit the Fly proxy
+	// timeout on 3k-row imports. It assumes the caller has already resolved
+	// every foreign-key id (class, status, get_by, source_fund). Returns the
+	// number of rows actually written. On stores without the tab_asset
+	// schema (sqlite dev harness) it falls back to a loop of CreateAsset.
+	BulkInsertElaasAssets(ctx context.Context, orgID int64, rows []ElaasAssetRow) (int, error)
 	SeedModules(ctx context.Context, orgID int64) error
 	UpdateWithdrawalStatus(ctx context.Context, orgID, id int64, status string) error
 	CreateUser(ctx context.Context, orgID int64, email, hash, display string, roleID int64) (*User, error)

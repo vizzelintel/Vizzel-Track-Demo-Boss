@@ -23,3 +23,29 @@ func (s *sqliteStore) EnsureLovGetBy(ctx context.Context, name string) (int64, e
 func (s *sqliteStore) EnsureLovSourceFund(ctx context.Context, name string) (int64, error) {
 	return 0, nil
 }
+
+// BulkInsertElaasAssets falls back to a per-row CreateAsset on sqlite so the
+// e2e harness can still verify the full pipeline. Postgres has the real
+// chunked path in tab_lookup.go.
+func (s *sqliteStore) BulkInsertElaasAssets(ctx context.Context, orgID int64, rows []ElaasAssetRow) (int, error) {
+	inserted := 0
+	for _, r := range rows {
+		in := AssetInput{
+			AssetNumber:     r.AssetNumber,
+			ElaasCode:       r.ElaasCode,
+			AssetName:       r.AssetName,
+			AssetDetails:    r.AssetDetails,
+			CategoryName:    r.CategoryName,
+			TypeName:        r.TypeName,
+			ClassName:       r.ClassName,
+			AssetStatusName: r.AssetStatusName,
+			AssetValue:      r.AssetValue,
+			IsDepreciation:  true,
+		}
+		if _, err := s.CreateAsset(ctx, orgID, in); err != nil {
+			return inserted, err
+		}
+		inserted++
+	}
+	return inserted, nil
+}

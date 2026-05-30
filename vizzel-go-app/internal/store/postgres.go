@@ -59,6 +59,7 @@ func (s *postgresStore) Migrate(ctx context.Context) error {
 		"024_rbac.sql",
 		"025_elaas_extras.sql",
 		"026_clear_demo_data.sql",
+		"027_elaas_fast_import.sql",
 	}
 	prefixes := []string{"supabase/migrations/", "vizzel-go-app/supabase/migrations/"}
 	for _, name := range files {
