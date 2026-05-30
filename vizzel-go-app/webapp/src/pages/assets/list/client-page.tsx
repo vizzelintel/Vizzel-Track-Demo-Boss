@@ -25,7 +25,6 @@ import {
   downloadAssetTemplate,
   exportAssets,
   importAssets,
-  convertElaasToCSV,
   ExportAssetsOptions,
 } from "@/lib/assets";
 
@@ -611,19 +610,59 @@ export default function ClientAssetsPage({
     };
 
     try {
+      // ----------------------------------------------------------------
+      // ELAAS xlsx path: upload the original .xlsx once and let the Go
+      // handler resolve taxonomy/lov/status itself. The legacy CSV-convert
+      // + chunked default-import path silently dropped many spec fields
+      // (receivedDate, getBy, getFrom, sourceFund, availableAge), so we
+      // skip it entirely for format="elaas". Progress is approximate –
+      // the backend processes all rows in a single request.
+      // ----------------------------------------------------------------
+      if (importFormat === "elaas") {
+        const totalEstimate = confirmImportData.imported || 0;
+        setImportProgress({
+          success: 0,
+          fail: 0,
+          total: totalEstimate,
+          processed: 0,
+        } as any);
+        try {
+          const res = await importAssets(
+            user.organizationID,
+            file,
+            false,
+            false,
+            "elaas",
+          );
+          const okCount = Number(res?.imported || 0);
+          const failCount = Number(res?.failed || 0);
+          const totalActual = okCount + failCount || totalEstimate;
+          setImportProgress({
+            success: okCount,
+            fail: failCount,
+            total: totalActual,
+            processed: totalActual,
+          } as any);
+          showImportResult(okCount, failCount, res?.errors || []);
+        } catch (e) {
+          showImportResult(0, totalEstimate, [
+            { line: 0, error: (e as Error).message },
+          ]);
+        }
+        setImportDialogOpen(false);
+        setImportFile(null);
+        setConfirmImportOpen(false);
+        setPendingImportFile(null);
+        refresh();
+        router.refresh();
+        return;
+      }
+
       let header = "";
       let dataRows: string[] = [];
 
       // --- Step 1: Parse file into header + dataRows ---
-      if (importFormat === "elaas") {
-        // e-LAAS: Convert Excel → CSV via backend, then parse
-        const csvText = await convertElaasToCSV(file);
-        const lines = parseCsvToRows(csvText);
-        if (lines.length > 0) {
-          header = lines[0];
-          dataRows = lines.slice(1);
-        }
-      } else {
+      {
         const isExcel =
           file.name.toLowerCase().endsWith(".xlsx") ||
           file.name.toLowerCase().endsWith(".xls");

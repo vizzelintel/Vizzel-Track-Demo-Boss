@@ -27,8 +27,15 @@ test.describe("ELAAS xlsx import", () => {
     const body = await res.json();
     expect(body.dry_run).toBe(true);
     expect(body.data_rows).toBeGreaterThan(100);
-    expect(body.imported).toBe(0);
+    // The handler now surfaces the importable-row count via `imported`
+    // during dry-run so the existing UI ("ยืนยันนำเข้า {N} รายการ") works
+    // without bespoke wiring, plus a dedicated `validRows` field for new
+    // consumers.
+    expect(body.imported).toBeGreaterThan(100);
+    expect(body.validRows).toBeGreaterThan(100);
+    expect(body.created).toBe(0);
     expect(body.summary?.categories?.length).toBeGreaterThan(0);
+    expect(body.summary?.types?.length).toBeGreaterThan(0);
     expect(Array.isArray(body.sample)).toBe(true);
   });
 

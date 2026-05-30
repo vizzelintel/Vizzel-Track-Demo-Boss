@@ -58,6 +58,22 @@ type Store interface {
 	EntityCreate(ctx context.Context, kind string, orgID int64, name string, parentID int64) (int64, error)
 	EntityUpdate(ctx context.Context, kind string, orgID, id int64, name string) error
 	EntityDelete(ctx context.Context, kind string, orgID, id int64) error
+
+	// EnsureTabTaxonomy resolves (or creates) the (category, type, class) chain
+	// for `orgID` and returns the leaf class_id. When `class` is empty the
+	// importer reuses `typ` so the chain stays joinable; ELAAS exports only
+	// carry two levels (หมวดหมู่ + ประเภท). Returns 0 + nil on stores without a
+	// tab_asset_* taxonomy (e.g. the sqlite dev store) since those rely on
+	// denormalized name columns instead.
+	EnsureTabTaxonomy(ctx context.Context, orgID int64, category, typ, class string) (int64, error)
+	// EnsureTabAssetStatus returns the asset_status_id for the supplied status
+	// name, creating a row when missing. Empty input falls back to "ปกติ".
+	EnsureTabAssetStatus(ctx context.Context, name string) (int64, error)
+	// EnsureLovGetBy / EnsureLovSourceFund return the lov.id for the supplied
+	// name, creating a row when missing. Sqlite returns 0 since its assets
+	// schema does not track these IDs.
+	EnsureLovGetBy(ctx context.Context, name string) (int64, error)
+	EnsureLovSourceFund(ctx context.Context, name string) (int64, error)
 	SeedModules(ctx context.Context, orgID int64) error
 	UpdateWithdrawalStatus(ctx context.Context, orgID, id int64, status string) error
 	CreateUser(ctx context.Context, orgID int64, email, hash, display string, roleID int64) (*User, error)

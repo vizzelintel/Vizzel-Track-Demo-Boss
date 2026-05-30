@@ -712,7 +712,7 @@ func (h *Handler) ConvertElaasImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer file.Close()
-	report, err := h.parseElaasXLSX(file)
+	report, err := parseElaasXLSX(file)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "elaas parse failed: "+err.Error())
 		return
@@ -725,14 +725,11 @@ func (h *Handler) ConvertElaasImport(w http.ResponseWriter, r *http.Request) {
 		if assetNum == "" {
 			assetNum = row.ElaasCode
 		}
-		status := row.Status
-		if status == "" {
-			status = "ใช้งาน"
-		}
-		depr := "ไม่ใช่"
-		if row.AccumDepr > 0 {
-			depr = "ใช่"
-		}
+		status := canonicalElaasStatus(row.Status)
+		// Always depreciate by default in the legacy CSV bridge – the new
+		// ELAAS row struct no longer carries an accumulated-depreciation
+		// number because the spec marks that column as SKIP.
+		depr := "ใช่"
 		_ = cw.Write([]string{
 			assetNum,
 			row.ElaasCode,
